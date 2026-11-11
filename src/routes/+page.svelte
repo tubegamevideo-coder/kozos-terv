@@ -25,14 +25,13 @@
 				<thead><tr><th>Projekt</th><th>Munkatér</th><th>Szerepkör</th><th>Új változás</th></tr></thead>
 				<tbody>
 					{#each data.projects as p (p.id)}
-						<tr><td><strong>{p.name}</strong><br /><span class="muted">{p.goal}</span></td><td>{p.workspace}</td><td>{p.role}</td><td>{p.unseenChanges}</td></tr>
+						<tr><td><a href={`/p/${p.id}`}><strong>{p.name}</strong></a><br /><span class="muted">{p.goal}</span></td><td>{p.workspace}</td><td>{p.role}</td><td>{p.unseenChanges}</td></tr>
 					{/each}
 				</tbody>
 			</table>
 		{:else}
 			<p class="muted">Még nincs projekted.</p>
 		{/if}
-		<p class="muted">A dokumentumok webes nézete a következő lépésben jön; addig a Claude-dal dolgozz bennük.</p>
 	</section>
 
 	<section>

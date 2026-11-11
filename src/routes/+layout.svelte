@@ -30,7 +30,23 @@
 	:global(.button.secondary) { background: transparent; color: var(--fg); border: 1px solid var(--line); }
 	:global(.link) { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 0 4px; }
 	:global(.danger) { color: var(--danger); }
-	:global(form.row) { display: flex; gap: 8px; flex-wrap: wrap; }
+	:global(form.row), :global(.row) { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 	:global(form.inline) { display: inline; }
+	:global(main.wide) { max-width: 1180px; }
+	:global(.small) { font-size: 0.85em; }
+	:global(.badge) { display: inline-block; font-size: 0.75em; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); text-decoration: none; vertical-align: middle; }
+	:global(.badge.prot) { border-color: var(--accent); color: var(--accent); }
+	:global(.badge.lock) { border-color: #b58105; color: #b58105; }
+	:global(.badge.warn) { border-color: #c4610a; color: #c4610a; }
+	:global(.badge.okb) { border-color: var(--accent); color: var(--accent); }
+	:global(a) { color: var(--accent); }
+	:global(.md) { overflow-wrap: anywhere; }
+	:global(.md table) { margin: 8px 0; }
+	:global(.md pre) { background: color-mix(in srgb, var(--fg) 6%, transparent); padding: 10px; border-radius: 8px; overflow: auto; }
+	:global(.md pre code) { background: none; padding: 0; }
+	:global(.md blockquote) { border-left: 3px solid var(--line); margin: 8px 0; padding: 2px 12px; color: var(--muted); }
+	:global(.mermaid-diagram) { margin: 10px 0; overflow: auto; }
+	:global(.mermaid-diagram svg) { max-width: 100%; height: auto; }
+	:global(details summary) { cursor: pointer; }
 	:global(input), :global(select) { font: inherit; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--fg); }
 </style>

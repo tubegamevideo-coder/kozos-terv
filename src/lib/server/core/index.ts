@@ -14,3 +14,5 @@ export * from './projects';
 export * from './search';
 export * from './import';
 export * from './members';
+export * from './review';
+export { lineDiff, type DiffLine } from './diff';

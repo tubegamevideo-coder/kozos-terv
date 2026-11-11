@@ -3,8 +3,9 @@
 Közös tervezőapp: több ember a saját Claude-előfizetésével tervez egy közös projekten, MCP-n
 keresztül, úgy, hogy a Claude-ok nem írják felül egymás munkáját. Specifikáció: [`docs/SPEC.md`](docs/SPEC.md).
 
-**Állapot:** 3. lépés kész – Google-belépés, saját OAuth 2.1 szerver a Claude-oknak (DCR, PKCE),
-nyilvános cím Cloudflare Tunnelen; MCP-szerver 24 eszközzel és 3 prompttal.
+**Állapot:** 4. lépés kész – webes felület (dokumentumok Markdown/Mermaid-del, szerkesztés,
+javaslatok elfogadása, előzmény, kérdések, ötletek, élő frissítés), Google-belépés, saját OAuth 2.1
+szerver a Claude-oknak, nyilvános cím Cloudflare Tunnelen; MCP-szerver 24 eszközzel és 3 prompttal.
 Telepítés az otthoni szerverre: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Fejlesztés

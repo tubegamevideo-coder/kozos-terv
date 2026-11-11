@@ -1,6 +1,6 @@
-import { createTwoFilesPatch } from 'diff';
+import { createTwoFilesPatch, diffLines } from 'diff';
 
-const withNl = (s: string) => (s.endsWith('\n') ? s : s + '\n');
+const withNl = (s: string) => (s === '' || s.endsWith('\n') ? s : s + '\n');
 
 /** Unified diff két szövegállapot között, fejléc nélküli „===” sorral; üres, ha nincs eltérés. */
 export function unifiedDiff(oldText: string, newText: string, oldLabel: string, newLabel: string) {
@@ -24,4 +24,20 @@ export function countOccurrences(haystack: string, needle: string) {
 		i = haystack.indexOf(needle, i + needle.length);
 	}
 	return count;
+}
+
+export interface DiffLine {
+	type: 'add' | 'del' | 'ctx';
+	text: string;
+}
+
+/** Soronkénti különbség a felülethez (hozzáadott / törölt / változatlan sorok). */
+export function lineDiff(oldText: string, newText: string): DiffLine[] {
+	const out: DiffLine[] = [];
+	for (const part of diffLines(withNl(oldText), withNl(newText))) {
+		const type = part.added ? 'add' : part.removed ? 'del' : 'ctx';
+		const lines = part.value.replace(/\n$/, '').split('\n');
+		for (const text of lines) out.push({ type, text });
+	}
+	return out;
 }
