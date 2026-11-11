@@ -29,14 +29,14 @@ async function connect(db: Db, userId: string) {
 }
 
 const EXPECTED_TOOLS = [
-	'add_comment', 'add_idea', 'add_question', 'create_document', 'create_section', 'edit_section',
+	'add_comment', 'add_idea', 'add_question', 'create_document', 'create_project', 'create_section', 'edit_section',
 	'get_changes', 'get_project_brief', 'list_comments', 'list_ideas', 'list_projects', 'list_questions',
 	'lock_section', 'log_decision', 'propose_change', 'read_document', 'read_section', 'release_section',
 	'replace_section', 'search', 'trash_section', 'update_question', 'vote_idea', 'withdraw_proposal'
 ];
 
 describe('MCP-eszközök', () => {
-	it('mind a 24 eszköz és a 3 prompt elérhető, leírással és bemeneti sémával', async () => {
+	it('mind a 25 eszköz és a 3 prompt elérhető, leírással és bemeneti sémával', async () => {
 		const s = await seed(db);
 		const { client } = await connect(db, s.kollega.id);
 		const { tools } = await client.listTools();
@@ -159,6 +159,18 @@ describe('MCP-eszközök', () => {
 		expect(qs[0]).toMatchObject({ title: 'Milyen gyakran értesítsünk?', decision: 'hetente' });
 		const found = await k.json('search', { projectId: s.project.id, query: 'hetente' });
 		expect(found.sections[0].documentTitle).toBe('Döntésnapló');
+	});
+
+	it('a Claude projektet hozhat létre a felhasználó munkaterében; olvasóként nem', async () => {
+		const s = await seed(db);
+		const k = await connect(db, s.kollega.id);
+		const r = await k.json('create_project', { name: 'Cégkereső', goal: 'B2B cégkereső platform' });
+		expect(r).toMatchObject({ name: 'Cégkereső', workspace: 'Fabak' });
+		const list = await k.json('list_projects');
+		expect(list.map((p: { name: string }) => p.name)).toContain('Cégkereső');
+		const v = await connect(db, s.vendeg.id);
+		expect((await v.call('create_project', { name: 'X' })).text).toContain('HIBA VALIDATION');
+		expect((await k.call('create_project', { name: 'Y', workspace: 'Nincs ilyen' })).text).toContain('HIBA VALIDATION');
 	});
 
 	it('nem tag projektjéhez nem fér hozzá', async () => {

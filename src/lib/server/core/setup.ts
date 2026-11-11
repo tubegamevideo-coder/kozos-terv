@@ -39,13 +39,15 @@ export async function createProject(
 	actor: Actor,
 	input: { workspaceId: string; name: string; goal?: string; instructions?: string }
 ) {
+	const name = input.name?.trim();
+	if (!name) throw new CoreError('VALIDATION', 'A projektnek név kell.');
 	await requireRole(db, actor, input.workspaceId, 'editor');
 	return db.transaction(async (tx) => {
 		const [p] = await tx
 			.insert(project)
 			.values({
 				workspaceId: input.workspaceId,
-				name: input.name,
+				name,
 				goal: input.goal ?? '',
 				instructions: input.instructions ?? '',
 				createdBy: actor.userId

@@ -1,20 +1,51 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { ArrowUpRight, Folder, Unplug } from '@lucide/svelte';
+	import { ArrowUpRight, Folder, Plus, Unplug } from '@lucide/svelte';
 	import type { PageProps } from './$types';
 	import CopyField from '../../lib/components/CopyField.svelte';
 	import Empty from '../../lib/components/Empty.svelte';
 	import { withToast } from '../../lib/toast.svelte';
 	import { ago, fmtDate, roleLabel } from '../../lib/ui';
 	let { data }: PageProps = $props();
+	let creating = $state(false);
 	const firstName = $derived(data.user.name.split(' ').at(-1));
 </script>
 
 <svelte:head><title>Projektek – Közös tervező</title></svelte:head>
 
 <div class="page">
-	<h1 class="page-title">Projektek</h1>
-	<p class="muted lead">Szia, {firstName}! Itt látod, hol történt valami, mióta utoljára benéztél.</p>
+	<header class="head">
+		<div class="grow">
+			<h1 class="page-title">Projektek</h1>
+			<p class="muted lead">Szia, {firstName}! Itt látod, hol történt valami, mióta utoljára benéztél.</p>
+		</div>
+		{#if data.workspaces.length}
+			<button class="btn" onclick={() => (creating = !creating)}><Plus size={16} /> Új projekt</button>
+		{/if}
+	</header>
+
+	{#if creating}
+		<form method="POST" action="?/createProject" class="panel newp" use:enhance={withToast()}>
+			<div>
+				<label class="lbl" for="np-name">Név</label>
+				<input id="np-name" name="name" placeholder="pl. Cégkereső platform" required />
+			</div>
+			<div>
+				<label class="lbl" for="np-goal">Cél egy mondatban</label>
+				<input id="np-goal" name="goal" placeholder="Mit akartok elérni? A Claude-ok is ezt látják elsőként." />
+			</div>
+			{#if data.workspaces.length > 1}
+				<div>
+					<label class="lbl" for="np-ws">Munkatér</label>
+					<select id="np-ws" name="workspaceId">{#each data.workspaces as w (w.id)}<option value={w.id}>{w.name}</option>{/each}</select>
+				</div>
+			{:else}
+				<input type="hidden" name="workspaceId" value={data.workspaces[0].id} />
+			{/if}
+			<p class="faint tiny">A projektet a munkatér minden tagja látja. Dokumentumokat utána a projekt oldalán, vagy a Claude-oddal hozhatsz létre.</p>
+			<div class="row"><span class="grow"></span><button type="button" class="btn ghost" onclick={() => (creating = false)}>Mégse</button><button class="btn">Projekt létrehozása</button></div>
+		</form>
+	{/if}
 
 	<div class="plist">
 		{#each data.projects as p (p.id)}
@@ -107,8 +138,20 @@
 		max-width: 860px;
 		padding: 36px 40px 64px;
 	}
+	.head {
+		display: flex;
+		align-items: flex-start;
+		gap: 16px;
+	}
 	.lead {
 		margin: 6px 0 22px;
+	}
+	.newp {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 16px;
+		margin-bottom: 20px;
 	}
 	.plist {
 		display: flex;

@@ -5,6 +5,7 @@ import { getAuthConfig } from '../../lib/server/auth/config';
 import { disconnectClient, listConnectedClients } from '../../lib/server/auth/oauth';
 import {
 	CoreError,
+	createProject,
 	inviteMember,
 	listMyWorkspaces,
 	listPendingInvitations,
@@ -26,7 +27,8 @@ export const load: PageServerLoad = async ({ locals }) => {
 		mcpUrl: getAuthConfig().mcpResource,
 		projects: await listProjects(db, actor, { channel: 'web' }),
 		clients: await listConnectedClients(db, locals.user.id),
-		ownedWorkspaces: invitations
+		ownedWorkspaces: invitations,
+		workspaces: workspaces.filter((w) => w.role !== 'viewer').map((w) => ({ id: w.id, name: w.name }))
 	};
 };
 
@@ -36,6 +38,22 @@ const actorOf = (locals: App.Locals): Actor => {
 };
 
 export const actions: Actions = {
+	createProject: async ({ request, locals }) => {
+		const actor = actorOf(locals);
+		const f = await request.formData();
+		let project;
+		try {
+			project = await createProject(getDb(), actor, {
+				workspaceId: String(f.get('workspaceId') ?? ''),
+				name: String(f.get('name') ?? '').trim(),
+				goal: String(f.get('goal') ?? '').trim()
+			});
+		} catch (e) {
+			if (e instanceof CoreError) return fail(400, { error: e.message });
+			throw e;
+		}
+		redirect(303, `/p/${project.id}`);
+	},
 	disconnect: async ({ request, locals }) => {
 		const actor = actorOf(locals);
 		const clientId = String((await request.formData()).get('clientId') ?? '');

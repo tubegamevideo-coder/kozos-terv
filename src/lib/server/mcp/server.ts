@@ -57,6 +57,38 @@ export function buildMcpServer(db: Db, actor: Actor) {
 	);
 
 	server.registerTool(
+		'create_project',
+		{
+			title: 'Új projekt',
+			description:
+				'Új projekt létrehozása, ha a felhasználó kéri. Adj neki rövid nevet és egymondatos célt; a projektutasítást (a Claude-oknak szóló szabályokat) csak ember állíthatja a felületen. Ha a felhasználónak több munkatere van, add meg a munkatér nevét (workspace). Utána create_document-tel indíthatod a dokumentumokat.',
+			inputSchema: {
+				name: z.string().min(1).describe('A projekt neve'),
+				goal: z.string().optional().describe('A cél egy mondatban'),
+				workspace: z.string().optional().describe('A munkatér neve (csak ha több van)')
+			},
+			annotations: rw
+		},
+		async (a) =>
+			run(async () => {
+				const all = await core.listMyWorkspaces(db, actor.userId);
+				const writable = all.filter((w) => w.role !== 'viewer');
+				const pick = a.workspace
+					? writable.filter((w) => w.name.toLowerCase() === a.workspace!.trim().toLowerCase())
+					: writable;
+				if (pick.length !== 1) {
+					throw new core.CoreError(
+						'VALIDATION',
+						pick.length ? 'Több munkatér van, add meg, melyikben (workspace).' : 'Nincs ilyen munkatér, ahol projektet hozhatnál létre.',
+						{ workspaces: writable.map((w) => w.name) }
+					);
+				}
+				const p = await core.createProject(db, actor, { workspaceId: pick[0].id, name: a.name, goal: a.goal });
+				return { projectId: p.id, name: p.name, workspace: pick[0].name };
+			})
+	);
+
+	server.registerTool(
 		'get_project_brief',
 		{
 			title: 'Projekt-összefoglaló',
