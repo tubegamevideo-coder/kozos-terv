@@ -54,6 +54,6 @@ jobs:
             -H 'accept: application/json, text/event-stream' \
             -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}' | tee out.json
           grep -q 'Pályázatfigyelő' out.json
-          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3100/mcp -d '{}')" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3100/mcp -H 'content-type: application/json' -d '{}')" = 401
       - if: failure()
         run: docker compose logs
