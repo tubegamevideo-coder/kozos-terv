@@ -4,8 +4,33 @@ export async function renderMermaid(root: HTMLElement | undefined) {
 	const blocks = [...root.querySelectorAll<HTMLElement>('pre > code.language-mermaid')];
 	if (!blocks.length) return;
 	const { default: mermaid } = await import('mermaid');
-	const dark = matchMedia('(prefers-color-scheme: dark)').matches;
-	mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'neutral' });
+	// Az ábrák a felület színeit kapják (papír, tus, zöldeskék vonalak).
+	const css = getComputedStyle(document.documentElement);
+	const v = (n: string) => css.getPropertyValue(n).trim();
+	mermaid.initialize({
+		startOnLoad: false,
+		securityLevel: 'strict',
+		theme: 'base',
+		themeVariables: {
+			fontFamily: v('--sans'),
+			fontSize: '14px',
+			background: v('--surface'),
+			primaryColor: v('--teal-wash'),
+			primaryTextColor: v('--ink'),
+			primaryBorderColor: v('--teal'),
+			secondaryColor: v('--teal-wash'),
+			tertiaryColor: v('--claude-wash'),
+			lineColor: v('--graphite'),
+			textColor: v('--ink'),
+			edgeLabelBackground: v('--surface'),
+			clusterBkg: v('--paper'),
+			clusterBorder: v('--rule'),
+			noteBkgColor: v('--mark-wash'),
+			noteTextColor: v('--ink'),
+			noteBorderColor: v('--mark')
+		},
+		flowchart: { curve: 'basis', padding: 14 }
+	});
 	for (const [i, code] of blocks.entries()) {
 		const pre = code.parentElement!;
 		try {

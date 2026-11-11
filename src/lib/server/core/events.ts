@@ -38,7 +38,7 @@ export async function recordEvent(tx: Tx, actor: Actor, input: EventInput) {
 		})
 		.returning({ id: event.id });
 	await tx.execute(
-		sql`select pg_notify(${EVENT_CHANNEL}, ${JSON.stringify({ projectId: input.projectId, eventId: row.id })})`
+		sql`select pg_notify(${EVENT_CHANNEL}, ${JSON.stringify({ projectId: input.projectId, eventId: row.id, actorId: actor.userId, actorKind: actor.kind })})`
 	);
 	return row.id;
 }

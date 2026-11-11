@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Db, DbOrTx } from '../db';
 import {
 	document,
@@ -8,6 +8,7 @@ import {
 	proposal,
 	section,
 	sectionLock,
+	sectionRevision,
 	user,
 	workspace,
 	workspaceMember
@@ -66,11 +67,12 @@ export async function listProjects(db: DbOrTx, actor: Actor, opts: { channel?: V
 }
 
 async function activeLocks(db: DbOrTx, sectionIds: string[]) {
-	if (!sectionIds.length) return new Map<string, { sectionId: string; heldBy: string; via: string; purpose: string; expiresAt: string }>();
+	if (!sectionIds.length) return new Map<string, { sectionId: string; heldBy: string; heldByUserId: string; via: string; purpose: string; expiresAt: string }>();
 	const rows = await db
 		.select({
 			sectionId: sectionLock.sectionId,
 			heldBy: user.name,
+			heldByUserId: sectionLock.holderId,
 			via: sectionLock.actorKind,
 			purpose: sectionLock.purpose,
 			expiresAt: sectionLock.expiresAt
@@ -100,8 +102,10 @@ export interface DocumentSectionView {
 	/** vázlatnézetben: első mondat és a teljes hossz karakterben */
 	summary?: string;
 	length?: number;
-	lock: { sectionId: string; heldBy: string; via: string; purpose: string; expiresAt: string } | null;
+	lock: { sectionId: string; heldBy: string; heldByUserId: string; via: string; purpose: string; expiresAt: string } | null;
 	openProposals: number;
+	/** Ki írt bele utoljára (ember vagy a Claude-ja). */
+	lastEdit: { by: string; userId: string; via: 'human' | 'claude'; at: Date } | null;
 	updatedAt: Date;
 }
 
@@ -129,6 +133,21 @@ export async function readDocument(
 		.where(and(...conds))
 		.orderBy(asc(section.position));
 	const ids = rows.map((r) => r.id);
+	const lastEdits = ids.length
+		? await db
+				.selectDistinctOn([sectionRevision.sectionId], {
+					sectionId: sectionRevision.sectionId,
+					by: user.name,
+					userId: user.id,
+					via: sectionRevision.actorKind,
+					at: sectionRevision.createdAt
+				})
+				.from(sectionRevision)
+				.innerJoin(user, eq(user.id, sectionRevision.authorId))
+				.where(inArray(sectionRevision.sectionId, ids))
+				.orderBy(sectionRevision.sectionId, desc(sectionRevision.revision))
+		: [];
+	const lastBy = new Map(lastEdits.map((e) => [e.sectionId, { by: e.by, userId: e.userId, via: e.via, at: e.at }]));
 	const [locks, props, [newSecProps]] = await Promise.all([
 		activeLocks(db, ids),
 		openProposalCounts(db, ids),
@@ -152,6 +171,7 @@ export async function readDocument(
 				...(input.full ? { content: r.content } : { summary: firstSentence(r.content), length: r.content.length }),
 				lock: locks.get(r.id) ?? null,
 				openProposals: props.get(r.id) ?? 0,
+				lastEdit: lastBy.get(r.id) ?? null,
 				updatedAt: r.updatedAt
 			})
 		)
@@ -240,7 +260,7 @@ export async function getProjectBrief(
 			lastVisitedAt: changes.lastVisitedAt,
 			hasMore: changes.hasMore,
 			cursor: changes.nextCursor,
-			items: changes.items.map((e) => ({ id: e.id, at: e.at, by: e.by, via: e.via, type: e.type, summary: e.summary, targetId: e.targetId }))
+			items: changes.items.map((e) => ({ id: e.id, at: e.at, by: e.by, byUserId: e.byUserId, via: e.via, type: e.type, summary: e.summary, targetId: e.targetId, data: e.data }))
 		}
 	};
 }

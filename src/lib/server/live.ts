@@ -6,6 +6,13 @@ import { EVENT_CHANNEL } from './core/events';
  * Élő frissítés: folyamatonként egyetlen LISTEN-kapcsolat a Postgreshez; az események
  * projekt szerint szétosztva mennek az SSE-feliratkozóknak.
  */
+export interface LiveEvent {
+	projectId: string;
+	eventId: number;
+	actorId: string;
+	actorKind: 'human' | 'claude';
+}
+
 const bus = new EventEmitter();
 bus.setMaxListeners(0);
 let started: Promise<void> | null = null;
@@ -18,8 +25,8 @@ function start() {
 	started = listener
 		.listen(EVENT_CHANNEL, (payload) => {
 			try {
-				const { projectId, eventId } = JSON.parse(payload) as { projectId: string; eventId: number };
-				bus.emit(projectId, eventId);
+				const ev = JSON.parse(payload) as LiveEvent;
+				bus.emit(ev.projectId, ev);
 			} catch {
 				/* hibás üzenet: kihagyjuk */
 			}
@@ -32,7 +39,7 @@ function start() {
 	return started;
 }
 
-export async function subscribe(projectId: string, onEvent: (eventId: number) => void) {
+export async function subscribe(projectId: string, onEvent: (ev: LiveEvent) => void) {
 	await start();
 	bus.on(projectId, onEvent);
 	return () => bus.off(projectId, onEvent);
