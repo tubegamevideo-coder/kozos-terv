@@ -23,7 +23,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const token = event.cookies.get(SESSION_COOKIE);
 	event.locals.user = !isApi && token ? await getSessionUser(getDb(), token) : null;
 
-	const response = await resolve(event);
+	// Választott téma (süti): már a szerver beírja a <html>-be, így nincs villanás betöltéskor.
+	const theme = event.cookies.get('kt_theme');
+	const response = await resolve(event, {
+		transformPageChunk:
+			theme === 'light' || theme === 'dark'
+				? ({ html }) => html.replace('<html lang="hu"', `<html lang="hu" data-theme="${theme}"`)
+				: undefined
+	});
 	if (!isApi) {
 		response.headers.set('x-frame-options', 'DENY');
 		response.headers.set('content-security-policy', "frame-ancestors 'none'");

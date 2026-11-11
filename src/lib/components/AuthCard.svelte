@@ -50,12 +50,7 @@
 	.mark i:last-child {
 		left: 8px;
 		background: var(--claude);
-		mix-blend-mode: multiply;
-	}
-	@media (prefers-color-scheme: dark) {
-		.mark i:last-child {
-			mix-blend-mode: screen;
-		}
+		opacity: 0.85;
 	}
 	.card :global(h1) {
 		font-size: 22px;

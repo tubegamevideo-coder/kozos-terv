@@ -20,70 +20,48 @@
 @import '@fontsource/ibm-plex-mono/latin-ext-400.css';
 
 :root {
-	color-scheme: light;
-	--paper: #f5f6f8;
-	--surface: #ffffff;
-	--sunken: #eef0f3;
-	--ink: #1c2230;
-	--graphite: #5e6676;
-	--faint: #8a92a1;
-	--rule: #e1e4ea;
-	--rule-strong: #cdd2da;
-
-	--teal: #0f7d72;
-	--teal-hover: #0b6a60;
-	--teal-wash: #e3f2ef;
-	--claude: #5a57d1;
-	--claude-wash: #ecebfb;
-	--mark: #f2b33d;
-	--mark-wash: #fff3d6;
-	--mark-ink: #7a5300;
-	--danger: #c0362c;
-	--danger-wash: #fbe9e7;
-	--add: #e3f4e7;
-	--add-ink: #1d6b33;
-	--del: #fbe8e8;
-	--del-ink: #9b2a2a;
-
+	/* A téma: a rendszert követi, vagy a felhasználó választása (data-theme a <html>-en). */
+	color-scheme: light dark;
+	--paper: light-dark(#f5f6f8, #12161d);
+	--surface: light-dark(#ffffff, #181d26);
+	--sunken: light-dark(#eef0f3, #0f1319);
+	--ink: light-dark(#1c2230, #e6e9ef);
+	--graphite: light-dark(#5e6676, #a0a8b7);
+	--faint: light-dark(#8a92a1, #707a8b);
+	--rule: light-dark(#e1e4ea, #262d39);
+	--rule-strong: light-dark(#cdd2da, #343c4a);
+	--teal: light-dark(#0f7d72, #2bb3a3);
+	--teal-hover: light-dark(#0b6a60, #3cc4b4);
+	--teal-wash: light-dark(#e3f2ef, #13302d);
+	--claude: light-dark(#5a57d1, #9a97f5);
+	--claude-wash: light-dark(#ecebfb, #24233f);
+	--mark: light-dark(#f2b33d, #e5a93a);
+	--mark-wash: light-dark(#fff3d6, #33290f);
+	--mark-ink: light-dark(#7a5300, #f2c46b);
+	--danger: light-dark(#c0362c, #ef6b60);
+	--danger-wash: light-dark(#fbe9e7, #3a1d1b);
+	--add: light-dark(#e3f4e7, #15301e);
+	--add-ink: light-dark(#1d6b33, #7fd497);
+	--del: light-dark(#fbe8e8, #3a1c1c);
+	--del-ink: light-dark(#9b2a2a, #f19a9a);
 	--sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 	--serif: 'Source Serif 4 Variable', 'Source Serif 4', Georgia, serif;
 	--mono: 'IBM Plex Mono', ui-monospace, monospace;
-
 	--r-sm: 6px;
 	--r-md: 10px;
 	--sidebar: 264px;
 	--focus: 0 0 0 3px color-mix(in srgb, var(--teal) 35%, transparent);
-	--shadow-pop: 0 12px 40px -8px rgb(28 34 48 / 0.28), 0 0 0 1px rgb(28 34 48 / 0.06);
+	--shadow-c: light-dark(rgb(28 34 48 / 0.28), rgb(0 0 0 / 0.6));
+	--shadow-ring: light-dark(rgb(28 34 48 / 0.06), rgb(255 255 255 / 0.08));
+	--shadow-pop: 0 12px 40px -8px var(--shadow-c), 0 0 0 1px var(--shadow-ring);
+}
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+:root[data-theme='dark'] {
+	color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-	:root {
-		color-scheme: dark;
-		--paper: #12161d;
-		--surface: #181d26;
-		--sunken: #0f1319;
-		--ink: #e6e9ef;
-		--graphite: #a0a8b7;
-		--faint: #707a8b;
-		--rule: #262d39;
-		--rule-strong: #343c4a;
-		--teal: #2bb3a3;
-		--teal-hover: #3cc4b4;
-		--teal-wash: #13302d;
-		--claude: #9a97f5;
-		--claude-wash: #24233f;
-		--mark: #e5a93a;
-		--mark-wash: #33290f;
-		--mark-ink: #f2c46b;
-		--danger: #ef6b60;
-		--danger-wash: #3a1d1b;
-		--add: #15301e;
-		--add-ink: #7fd497;
-		--del: #3a1c1c;
-		--del-ink: #f19a9a;
-		--shadow-pop: 0 16px 48px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.06);
-	}
-}
 
 *,
 *::before,

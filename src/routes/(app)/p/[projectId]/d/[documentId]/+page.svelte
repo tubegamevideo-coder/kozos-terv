@@ -33,6 +33,11 @@
 		void d;
 		renderMermaid(container);
 	});
+	$effect(() => {
+		const onTheme = () => renderMermaid(container, true);
+		window.addEventListener('kt-theme', onTheme);
+		return () => window.removeEventListener('kt-theme', onTheme);
+	});
 
 	const minutesLeft = (iso: string) => Math.max(1, Math.round((new Date(iso).getTime() - Date.now()) / 60000));
 	const diffClass = (l: string) => (l.startsWith('+') && !l.startsWith('+++') ? 'add' : l.startsWith('-') && !l.startsWith('---') ? 'del' : l.startsWith('@@') ? 'hunk' : '');

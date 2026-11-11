@@ -27,14 +27,8 @@
 		border-radius: 50%;
 		font-weight: 600;
 		letter-spacing: 0.02em;
-		color: hsl(var(--h) 45% 28%);
-		background: hsl(var(--h) 45% 88%);
-	}
-	@media (prefers-color-scheme: dark) {
-		.av {
-			color: hsl(var(--h) 50% 82%);
-			background: hsl(var(--h) 30% 26%);
-		}
+		color: light-dark(hsl(var(--h) 45% 28%), hsl(var(--h) 50% 82%));
+		background: light-dark(hsl(var(--h) 45% 88%), hsl(var(--h) 30% 26%));
 	}
 	/* Claude-jelölés: ibolya gyűrű és egy kis csillag a sarokban */
 	.av.claude {

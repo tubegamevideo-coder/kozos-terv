@@ -17,6 +17,7 @@
 	import Avatar from '../../lib/components/Avatar.svelte';
 	import CommandPalette from '../../lib/components/CommandPalette.svelte';
 	import Toaster from '../../lib/components/Toaster.svelte';
+	import ThemeToggle from '../../lib/components/ThemeToggle.svelte';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -97,6 +98,7 @@
 
 		<div class="foot">
 			<a class="item" class:on={path === '/'} href="/#claude"><Plug size={16} /> Claude csatlakoztatása</a>
+			<div class="theme"><span class="faint small">Megjelenés</span><ThemeToggle /></div>
 			<div class="me">
 				<Avatar name={data.user.name} size={26} />
 				<span class="grow ell small">{data.user.name}</span>
@@ -173,12 +175,7 @@
 	.mark i:last-child {
 		left: 8px;
 		background: var(--claude);
-		mix-blend-mode: multiply;
-	}
-	@media (prefers-color-scheme: dark) {
-		.mark i:last-child {
-			mix-blend-mode: screen;
-		}
+		opacity: 0.85;
 	}
 	.search {
 		display: flex;
@@ -284,6 +281,12 @@
 		gap: 6px;
 		padding-top: 12px;
 		border-top: 1px solid var(--rule);
+	}
+	.theme {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 2px 4px 2px 8px;
 	}
 	.me {
 		display: flex;
