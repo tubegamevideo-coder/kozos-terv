@@ -10,7 +10,11 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
   adatbázist közvetlenül.
 - `src/lib/server/mcp/` – MCP-eszközök (`server.ts`), promptok, a `/mcp` kezelője (`http.ts`).
   Az eszközleírások tanítják a Claude-ot: ha a viselkedésen akarsz változtatni, ott kezdd.
-- `src/routes/` – SvelteKit-oldalak és végpontok.
+- `src/lib/server/auth/` – Google-belépés, munkamenet, saját OAuth 2.1 szerver (`oauth.ts`),
+  a végpontok Request → Response formában (`endpoints.ts`), hogy SvelteKit nélkül is tesztelhetők legyenek.
+- `src/routes/` – SvelteKit-oldalak és végpontok. A beépített CSRF-ellenőrzés ki van kapcsolva
+  (az OAuth-végpontok miatt); helyette a `hooks.server.ts` ellenőrzi az Origin-t.
+  Külső címre átirányítás: `redirect(303, url, { external: true })`.
 - `tests/` – Vitest, valódi Postgresen (`TEST_DATABASE_URL`).
 
 ## Szabályok

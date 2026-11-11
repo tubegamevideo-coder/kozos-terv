@@ -56,7 +56,7 @@ Se az MCP-réteg, se a felület nem ír közvetlenül az adatbázisba.
 | 3 | Kik használják? | Meghívásos, több munkateres; először a fejlesztő és a kolléga |
 | 4 | Mi védett? | A „fő terv” típusú dokumentumok |
 | 5 | Emberi szerkesztő? | Egyszerű Markdown-szerkesztő (szövegdoboz + előnézet), nem WYSIWYG |
-| 6 | Webes belépés | Google-fiók (magán Gmail) → OAuth-képernyő „External”, tesztmódban, a tagok tesztfelhasználók |
+| 6 | Webes belépés | Google-fiók (magán Gmail) → OAuth-képernyő „External”, tesztmódban, a tagok tesztfelhasználók; callback: `/api/auth/callback/google` |
 | 7 | Zár alapideje | 20 perc, meghosszabbítható (max. 120 perc) |
 | 8 | Név és domain | `kozos-terv`, `terv.nebulooo.com` |
 | 9 | Stack | TypeScript full-stack (lásd 8. fejezet), nem Django |
@@ -71,7 +71,8 @@ A központi elem a **szakasz**, mert ott van a zár és a verzió.
 
 | Tábla | Mit tárol | Megjegyzés |
 |---|---|---|
-| `user` | Név, e-mail, kép | A Better Auth kezeli; meghívás nélkül nem lehet belépni |
+| `user` | Név, e-mail, kép | Google-belépéskor jön létre (meghívóval) |
+| `session`, `oauth_client`, `oauth_code`, `oauth_token` | Webes munkamenet és OAuth | Csak a tokenek hash-e |
 | `workspace` | Csapat (pl. Fabak) | Egy telepítésen több munkatér |
 | `workspace_member` | Tag + szerepkör: `owner`, `editor`, `viewer` | |
 | `invitation` | E-mail, munkatér, szerepkör, lejárat | Ezzel engedi be a Google-belépés |
@@ -144,12 +145,14 @@ kér. Később MCP-promptok (pl. „ötletelés egy kérdésről”) és MCP App
 
 ## 7. Hitelesítés és biztonság
 
-- **Webes belépés:** Better Auth, Google-szolgáltatóval. Csak az léphet be, akinek érvényes
-  meghívója van vagy már tag (a regisztrációt a szerver blokkolja).
-- **Claude-csatlakozó:** a szerver maga az OAuth 2.1 hitelesítési szerver
-  (`@better-auth/oauth-provider`): PKCE, dinamikus kliensregisztráció (DCR), a
-  `/.well-known/oauth-authorization-server` és `/.well-known/oauth-protected-resource`
-  metaadat. A felhasználó a Claude-csatlakozó felvételekor a Google-lal lép be.
+- **Webes belépés:** Google OpenID Connect (kód + PKCE), saját munkamenet-sütivel. Csak az
+  léphet be, aki már tag, vagy akinek érvényes meghívója van (meghívó: e-mail + szerepkör, 14 nap).
+- **Claude-csatlakozó:** a szerver maga az OAuth 2.1 hitelesítési szerver, saját, kis kóddal
+  (`src/lib/server/auth/oauth.ts`; a Better Auth OAuth-modulja túl nagy és nehezen átlátható lett
+  volna): dinamikus kliensregisztráció (RFC 7591), PKCE S256 kötelező, frissítő token forgatással
+  és újrahasználat-észleléssel, erőforrás-kötés (RFC 8707), metaadat
+  (`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource/mcp`).
+  Átlátszatlan tokenek, az adatbázisban csak a hash-ük; a visszavonás azonnali.
 - **Visszahívási cím:** `https://claude.ai/api/mcp/auth_callback`.
 - **Nyilvános elérés kell:** a claude.ai az Anthropic felhőjéből hív, ezért Tailscale mögött nem
   működik; Cloudflare Tunnel jó, de Cloudflare Access interaktív beléptetés nem lehet előtte.
@@ -170,7 +173,7 @@ kér. Később MCP-promptok (pl. „ötletelés egy kérdésről”) és MCP App
 | Élő frissítés | Server-Sent Events, Postgres `LISTEN/NOTIFY`-jal | Egyszerű, egy irányú, proxybarát |
 | Markdown | `marked` + `DOMPurify` szerveroldalon; Mermaid a böngészőben | A Claude Markdownban ír, Mermaidben rajzol |
 | MCP | `@modelcontextprotocol/sdk`, `WebStandardStreamableHTTPServerTransport` | Hivatalos, a SvelteKit Request/Response-ával megy |
-| Belépés, OAuth | Better Auth + Google + `@better-auth/oauth-provider` | Kész DCR és metaadat-végpontok |
+| Belépés, OAuth | Google OIDC + saját OAuth 2.1 szerver | Kicsi, átlátható, teljesen tesztelt; nincs külső függőség |
 | Diff | `diff` (jsdiff) | Unified diff az ütközési válaszokhoz |
 | Validálás | `zod` | MCP-eszközök bemenete |
 | Tesztek | Vitest valódi Postgresen | A zár- és tranzakciólogika csak valódi DB-n bizonyítható |

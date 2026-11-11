@@ -3,7 +3,8 @@
 Közös tervezőapp: több ember a saját Claude-előfizetésével tervez egy közös projekten, MCP-n
 keresztül, úgy, hogy a Claude-ok nem írják felül egymás munkáját. Specifikáció: [`docs/SPEC.md`](docs/SPEC.md).
 
-**Állapot:** 2. lépés kész – MCP-szerver 24 eszközzel és 3 prompttal, fejlesztői tokenes belépéssel.
+**Állapot:** 3. lépés kész – Google-belépés, saját OAuth 2.1 szerver a Claude-oknak (DCR, PKCE),
+nyilvános cím Cloudflare Tunnelen; MCP-szerver 24 eszközzel és 3 prompttal.
 Telepítés az otthoni szerverre: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Fejlesztés
@@ -27,6 +28,7 @@ npm run dev
 | `src/lib/server/core/` | Közös mag – minden írás itt dől el |
 | `src/lib/server/mcp/` | MCP-eszközök, promptok, a `/mcp` kezelője |
 | `src/routes/mcp/+server.ts` | A `/mcp` végpont (Streamable HTTP, állapotmentes) |
+| `src/lib/server/auth/` | Google-belépés, munkamenetek, OAuth 2.1 szerver (`oauth.ts`) |
 | `scripts/seed-dev.ts` | Fejlesztői kezdőadatok, a SPEC importjával |
 | `drizzle/` | Generált migrációk (`npm run db:generate`) |
 | `tests/` | Vitest valódi Postgresen, párhuzamos írás tesztjeivel |

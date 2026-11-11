@@ -1,74 +1,81 @@
 # Telepítés az otthoni szerverre
 
-Ez a leírás a **2. lépéshez** szól: az app és az MCP-szerver fut az otthoni szerveren, de csak
-helyben (vagy a Tailscale-hálón) érhető el, fejlesztői tokenekkel. Nyilvános címet
-(`terv.nebulooo.com`) csak a 3. lépésben kap, a Google-belépéssel és az OAuth-tal együtt –
-belépés nélkül az MCP-szervert nem szabad kitenni az internetre.
+Az app Docker Compose-zal fut: `app` (SvelteKit + MCP), `db` (Postgres) és `tunnel`
+(Cloudflare Tunnel → `https://terv.nebulooo.com`). A weben Google-fiókkal lehet belépni,
+a Claude-ok OAuth 2.1-gyel kapcsolódnak, mindenki a saját fiókjával.
 
-Kell hozzá: Docker Compose és git a szerveren.
+## 0. Előfeltételek (egyszer)
 
-## 1. Letöltés és beállítás
+**Google OAuth-kliens** (Google Cloud Console → Google Auth Platform):
+- Audience: External, *Testing* mód; a *Test users* közé minden tag Gmail-címe.
+- Client → Web application, *Authorized redirect URIs*:
+  - `https://terv.nebulooo.com/api/auth/callback/google`
+  - `http://localhost:3100/api/auth/callback/google` (helyi próbához)
+
+**Cloudflare Tunnel** (Zero Trust → Networks → Tunnels):
+- Published application: `terv.nebulooo.com` → `http://app:3000`, Access-szabály **nélkül**.
+- A tunnel tokenje a `.env`-be kerül.
+
+## 1. Letöltés és `.env`
 
 ```bash
-git clone https://github.com/tubegamevideo-coder/kozos-terv.git
+git clone https://github.com/tubegamevideo-coder/kozos-terv.git   # vagy: git pull
 cd kozos-terv
-cp .env.example .env
+cp .env.example .env    # ha már van .env, a lenti kulcsokat vedd át belőle
 ```
-
-Tokenek generálása (felhasználónként egy):
-
-```bash
-openssl rand -hex 24   # a te tokened
-openssl rand -hex 24   # a kollégádé
-```
-
-A `.env`-ben töltsd ki:
 
 ```ini
-POSTGRES_PASSWORD=<hosszú véletlen jelszó: openssl rand -hex 16>
-APP_BIND=127.0.0.1          # vagy a szerver Tailscale-címe, ha a laptopodról is el akarod érni
+POSTGRES_PASSWORD=<openssl rand -hex 16>
+APP_BIND=127.0.0.1            # vagy a szerver Tailscale-címe
 APP_PORT=3100
-AUTH_MODE=dev
-MCP_DEV_TOKENS=<te tokened>=te@email.hu,<kolléga tokenje>=kollega@email.hu
-SEED_USERS=Levente=te@email.hu,Kolléga=kollega@email.hu
+
+COMPOSE_PROFILES=public
+ORIGIN=https://terv.nebulooo.com
+CLOUDFLARE_TUNNEL_TOKEN=<a tunnel tokenje>
+
+AUTH_MODE=oauth
+GOOGLE_CLIENT_ID=<…apps.googleusercontent.com>
+GOOGLE_CLIENT_SECRET=<…>
+
+SEED_USERS=Levente=te@gmail.com,Kolléga=kollega@gmail.com
 ```
 
-Az e-mail-címek a 3. lépésben a Google-belépéshez kötődnek majd, ezért a valódi Gmail-címeket
-érdemes megadni. A `.env` nem kerül a gitbe.
+A `SEED_USERS` címei legyenek **pontosan azok a Gmail-címek**, amelyekkel beléptek: a belépés
+e-mail-cím alapján köti össze a Google-fiókot a taggal. A `.env` nem kerül a gitbe.
 
 ## 2. Indítás
 
 ```bash
 docker compose up -d --build
-curl http://127.0.0.1:3100/healthz        # → ok
-docker compose exec app node --import tsx scripts/seed-dev.ts
+docker compose ps                                   # app: healthy, tunnel: running
+curl https://terv.nebulooo.com/healthz              # → ok
+docker compose exec app node --import tsx scripts/seed-dev.ts   # ismételten futtatható
 ```
 
-A seed létrehozza a felhasználókat, a „Fabak” munkateret, a „Közös tervezőapp” projektet (benne
-a specifikáció védett fő tervként) és az üres „Pályázatfigyelő” projektet. Ismételten futtatható.
+Ha a seed korábban más e-mail-címekkel futott, a régi felhasználók megmaradnak; ilyenkor a
+főoldalon (belépés után) a „Tagok meghívása” résznél hívd meg a helyes Gmail-címeket.
 
-## 3. Claude Code csatlakoztatása
+## 3. Belépés és meghívás
 
-A szerveren (vagy Tailscale-en át a laptopodon, ha `APP_BIND` a Tailscale-cím):
+1. `https://terv.nebulooo.com` → „Belépés Google-fiókkal”.
+2. Az első `SEED_USERS`-tag a „Fabak” munkatér tulajdonosa: a főoldalon további tagokat hívhat
+   meg (Gmail-cím + szerepkör). A meghívott első belépéskor tag lesz. Amíg a Google-app
+   *Testing* módban van, a címét a Google Cloud *Test users* listájára is fel kell venni.
 
+## 4. Claude csatlakoztatása
+
+**claude.ai / Claude asztali app:** Beállítások → Csatlakozók (Connectors) → *Egyedi csatlakozó
+hozzáadása* → URL: `https://terv.nebulooo.com/mcp`. A „Csatlakozás” gomb Google-belépést és egy
+„Engedélyezem” oldalt nyit; utána a Claude a te nevedben dolgozik. A csatlakozó a mobilappban is
+megjelenik.
+
+**Claude Code:**
 ```bash
-claude mcp add --scope user --transport http kozos-terv http://127.0.0.1:3100/mcp \
-  --header "Authorization: Bearer <a te tokened>"
-claude mcp list        # → kozos-terv: … ✓ Connected
+claude mcp add --scope user --transport http kozos-terv https://terv.nebulooo.com/mcp
+# Claude Code-ban: /mcp → kozos-terv → Authenticate
 ```
 
-Kipróbálás Claude Code-ban: `/mcp__kozos-terv__mi_tortent`, vagy egyszerűen: „Nézd meg a
-közös tervezőappban a Pályázatfigyelő projektet.”
-
-Ha a kolléga is a tailneten van, ő a saját tokenjével ugyanígy csatlakozik. Ha nincs, neki a
-3. lépésig (nyilvános cím + Google-belépés) várnia kell.
-
-## 4. MCP Inspector (opcionális)
-
-```bash
-npx @modelcontextprotocol/inspector --cli http://127.0.0.1:3100/mcp --transport http \
-  --header "Authorization: Bearer <token>" --method tools/list
-```
+A kapcsolódott klienseket a főoldalon látod, és bármikor visszavonhatod.
 
 ## Frissítés
 
@@ -76,10 +83,19 @@ npx @modelcontextprotocol/inspector --cli http://127.0.0.1:3100/mcp --transport 
 git pull && docker compose up -d --build     # induláskor magától migrál
 ```
 
+Figyelem: `.env`-módosítás után `docker compose up -d` kell (a `restart` nem olvassa újra).
+
 ## Mentés (amíg nincs automatikus)
 
 ```bash
 docker compose exec -T db pg_dump -U postgres kozos_terv | gzip > kozos-terv-$(date +%F).sql.gz
 ```
 
-Az automatikus napi mentés a NAS-ra az éles indulás előtt kerül be.
+## Hibakeresés
+
+- `docker compose logs -f app tunnel`
+- Cloudflare 502/1033: a `tunnel` konténer nem fut, vagy a cél nem `http://app:3000`.
+- „redirect_uri_mismatch” a Google-nél: a callback-cím nincs felvéve a Google-kliensnél.
+- „nincs meghívója”: a Gmail-cím nem egyezik a taghoz tartozó címmel → meghívás a főoldalon.
+- Helyi próba tunnel nélkül: `COMPOSE_PROFILES=`, `ORIGIN=http://localhost:3100`, és
+  `http://localhost:3100` a szerveren (a Google-belépés ehhez a localhost callback-címet használja).

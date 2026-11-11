@@ -22,7 +22,7 @@ export function useDb(): { db: Db } {
 	beforeEach(async () => {
 		clock.now = realNow;
 		await client.unsafe(`
-			truncate table event, project_visit, idea_vote, idea, comment, question, proposal,
+			truncate table oauth_token, oauth_code, oauth_client, session, event, project_visit, idea_vote, idea, comment, question, proposal,
 			section_lock, section_revision, section, document, project, invitation,
 			workspace_member, workspace, "user" restart identity cascade`);
 	});

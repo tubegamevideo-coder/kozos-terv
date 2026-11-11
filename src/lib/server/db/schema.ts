@@ -346,3 +346,83 @@ export const projectVisit = pgTable(
 	},
 	(t) => [primaryKey({ columns: [t.userId, t.projectId, t.channel] })]
 );
+
+// ------------------------------------------------------------ belépés és OAuth
+
+/** Webes munkamenet (sütiben a token; itt csak a SHA-256 hash-e). */
+export const session = pgTable(
+	'session',
+	{
+		id: id(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id),
+		tokenHash: text('token_hash').notNull().unique(),
+		userAgent: text('user_agent'),
+		createdAt: createdAt(),
+		expiresAt: ts('expires_at').notNull()
+	},
+	(t) => [index('session_user_idx').on(t.userId)]
+);
+
+export const oauthTokenKind = pgEnum('oauth_token_kind', ['access', 'refresh']);
+
+/** Dinamikusan regisztrált OAuth-kliens (pl. claude.ai, Claude Code). */
+export const oauthClient = pgTable('oauth_client', {
+	id: text('id').primaryKey(),
+	name: text('name').notNull(),
+	redirectUris: text('redirect_uris').array().notNull(),
+	/** `none` = nyilvános kliens (csak PKCE); egyébként titokkal hitelesít. */
+	tokenEndpointAuthMethod: text('token_endpoint_auth_method').notNull().default('none'),
+	secretHash: text('secret_hash'),
+	clientUri: text('client_uri'),
+	createdAt: createdAt(),
+	lastUsedAt: ts('last_used_at')
+});
+
+/** Engedélyezési kód: egyszer használható, 10 percig él. */
+export const oauthCode = pgTable('oauth_code', {
+	codeHash: text('code_hash').primaryKey(),
+	clientId: text('client_id')
+		.notNull()
+		.references(() => oauthClient.id),
+	userId: text('user_id')
+		.notNull()
+		.references(() => user.id),
+	redirectUri: text('redirect_uri').notNull(),
+	codeChallenge: text('code_challenge').notNull(),
+	resource: text('resource'),
+	scope: text('scope').notNull().default(''),
+	/** A kódból kiadott tokenek családja: kód-újrahasználatkor ezt vonjuk vissza. */
+	familyId: text('family_id').notNull(),
+	createdAt: createdAt(),
+	expiresAt: ts('expires_at').notNull(),
+	usedAt: ts('used_at')
+});
+
+/**
+ * Hozzáférési és frissítő tokenek (csak hash). Egy „család” = egy engedélyezés és a belőle
+ * forgatott tokenek; visszavont frissítő token újrahasználatakor az egész család visszavonódik.
+ */
+export const oauthToken = pgTable(
+	'oauth_token',
+	{
+		id: id(),
+		kind: oauthTokenKind('kind').notNull(),
+		tokenHash: text('token_hash').notNull().unique(),
+		familyId: text('family_id').notNull(),
+		clientId: text('client_id')
+			.notNull()
+			.references(() => oauthClient.id),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id),
+		resource: text('resource'),
+		scope: text('scope').notNull().default(''),
+		createdAt: createdAt(),
+		expiresAt: ts('expires_at').notNull(),
+		revokedAt: ts('revoked_at'),
+		lastUsedAt: ts('last_used_at')
+	},
+	(t) => [index('oauth_token_family_idx').on(t.familyId), index('oauth_token_user_idx').on(t.userId, t.clientId)]
+);

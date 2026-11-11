@@ -13,3 +13,4 @@ export * from './decisions';
 export * from './projects';
 export * from './search';
 export * from './import';
+export * from './members';

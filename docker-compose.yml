@@ -25,9 +25,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # A 2. lépésben csak helyben (vagy a Tailscale-címen) érhető el; nyilvános cím csak OAuth-tal (3. lépés).
+    # Helyi elérés (vagy Tailscale); a nyilvános cím a Cloudflare Tunnelen át jön.
     ports:
       - '${APP_BIND:-127.0.0.1}:${APP_PORT:-3100}:3000'
+
+  # Cloudflare Tunnel → terv.nebulooo.com (a Cloudflare-en beállított cél: http://app:3000).
+  # Csak a „public” profillal indul: COMPOSE_PROFILES=public a .env-ben.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      app:
+        condition: service_healthy
+    profiles: ['public']
 
 volumes:
   db-data:

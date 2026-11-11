@@ -10,7 +10,11 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter()
+			adapter: adapter(),
+			// A SvelteKit beépített CSRF-ellenőrzése a szerverek közti OAuth-kéréseket (token,
+			// register) is tiltaná, mert azokon nincs Origin fejléc. Helyette a hooks.server.ts
+			// ellenőrzi az Origin-t minden sütis, állapotot módosító kérésnél.
+			csrf: { trustedOrigins: ['*'] }
 		})
 	]
 });
