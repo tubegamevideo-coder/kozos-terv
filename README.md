@@ -3,7 +3,8 @@
 Közös tervezőapp: több ember a saját Claude-előfizetésével tervez egy közös projekten, MCP-n
 keresztül, úgy, hogy a Claude-ok nem írják felül egymás munkáját. Specifikáció: [`docs/SPEC.md`](docs/SPEC.md).
 
-**Állapot:** 1. lépés kész (adatmodell, közös mag: zár, revízió, javaslat, eseménynapló, tesztekkel).
+**Állapot:** 2. lépés kész – MCP-szerver 24 eszközzel és 3 prompttal, fejlesztői tokenes belépéssel.
+Telepítés az otthoni szerverre: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Fejlesztés
 
@@ -12,6 +13,7 @@ npm install
 cp .env.example .env
 docker compose -f docker-compose.dev.yml up -d   # Postgres + tesztadatbázis
 npm run db:migrate                               # séma a DATABASE_URL-re
+SEED_USERS="Levente=a@b.hu" npm run seed:dev     # kezdőadatok
 npm test                                         # tesztek a TEST_DATABASE_URL-en (minden futás újraépíti)
 npm run check                                    # típusellenőrzés
 npm run dev
@@ -23,6 +25,9 @@ npm run dev
 |---|---|
 | `src/lib/server/db/schema.ts` | Drizzle-séma (16 tábla) |
 | `src/lib/server/core/` | Közös mag – minden írás itt dől el |
+| `src/lib/server/mcp/` | MCP-eszközök, promptok, a `/mcp` kezelője |
+| `src/routes/mcp/+server.ts` | A `/mcp` végpont (Streamable HTTP, állapotmentes) |
+| `scripts/seed-dev.ts` | Fejlesztői kezdőadatok, a SPEC importjával |
 | `drizzle/` | Generált migrációk (`npm run db:generate`) |
 | `tests/` | Vitest valódi Postgresen, párhuzamos írás tesztjeivel |
 

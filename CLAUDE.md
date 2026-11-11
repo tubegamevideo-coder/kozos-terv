@@ -8,7 +8,8 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
 - `src/lib/server/core/` – **a közös mag**. Minden írás (szakasz, zár, javaslat, kérdés, ötlet,
   megjegyzés, esemény) csak innen mehet. Az MCP-réteg és a felület ezt hívja, sosem az
   adatbázist közvetlenül.
-- `src/lib/server/mcp/` – MCP-eszközök (2. lépéstől).
+- `src/lib/server/mcp/` – MCP-eszközök (`server.ts`), promptok, a `/mcp` kezelője (`http.ts`).
+  Az eszközleírások tanítják a Claude-ot: ha a viselkedésen akarsz változtatni, ott kezdd.
 - `src/routes/` – SvelteKit-oldalak és végpontok.
 - `tests/` – Vitest, valódi Postgresen (`TEST_DATABASE_URL`).
 
@@ -23,6 +24,8 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
 - Minden revízión és eseményen `actorKind`: `human` vagy `claude`.
 - Azonosítók: szöveges UUID (`crypto.randomUUID()`), időbélyegek `timestamptz`.
 - A felület és a hibaüzenetek magyarul; a kód, az azonosítók és a commitok angolul.
+- Környezeti változók: `process.env` (nem `$env`); importok relatív úttal a szerverkódban.
+- Az MCP-eszközök a magot hívják, `run()`-nal csomagolva; a `CoreError` olvasható hibaszöveggé válik.
 - Új logika mellé teszt kell. Commit előtt: `npm run check && npm test`.
 
 ## Parancsok
@@ -31,3 +34,5 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
 - `npm test` – tesztek (helyi Postgres kell, lásd `README.md`)
 - `npm run check` – típusellenőrzés
 - `npm run db:generate` / `npm run db:migrate` – migrációk
+- `npm run seed:dev` – fejlesztői kezdőadatok (`SEED_USERS`)
+- Telepítés: `docs/DEPLOY.md`

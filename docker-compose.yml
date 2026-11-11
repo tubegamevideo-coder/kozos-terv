@@ -1,0 +1,33 @@
+# Éles/otthoni futtatás: app + Postgres. Beállítások a .env-ben (lásd .env.example, docs/DEPLOY.md).
+#   docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Állítsd be a POSTGRES_PASSWORD-ot a .env-ben}
+      POSTGRES_DB: kozos_terv
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d kozos_terv']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/kozos_terv
+      ORIGIN: ${ORIGIN:-http://localhost:3100}
+    depends_on:
+      db:
+        condition: service_healthy
+    # A 2. lépésben csak helyben (vagy a Tailscale-címen) érhető el; nyilvános cím csak OAuth-tal (3. lépés).
+    ports:
+      - '${APP_BIND:-127.0.0.1}:${APP_PORT:-3100}:3000'
+
+volumes:
+  db-data:

@@ -17,8 +17,10 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate": "tsx scripts/migrate.ts",
-		"db:studio": "drizzle-kit studio"
+		"db:migrate": "node --import tsx scripts/migrate.ts",
+		"db:studio": "drizzle-kit studio",
+		"seed:dev": "node --import tsx scripts/seed-dev.ts",
+		"start": "node build"
 	},
 	"devDependencies": {
 		"@sveltejs/kit": "^3.0.0",
@@ -27,16 +29,17 @@
 		"drizzle-kit": "^0.31.11",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.6.0",
-		"tsx": "^4.23.15",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.0",
 		"vitest": "^5.1.0"
 	},
 	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.32.2",
 		"@sveltejs/adapter-node": "^6.0.2",
 		"diff": "^9.0.0",
 		"drizzle-orm": "^0.45.4",
 		"postgres": "^4.1.0",
+		"tsx": "^4.23.15",
 		"zod": "^4.6.7"
 	}
 }

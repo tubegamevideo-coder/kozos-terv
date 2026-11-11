@@ -29,3 +29,31 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+
+  docker:
+    # A Docker-kép és a compose-fájl füstpróbája: épül, migrál, seedel, és a /mcp válaszol.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose up
+        run: |
+          cp .env.example .env
+          TOKEN=$(openssl rand -hex 24)
+          echo "TOKEN=$TOKEN" >> "$GITHUB_ENV"
+          sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 12)/" .env
+          sed -i "s/^MCP_DEV_TOKENS=.*/MCP_DEV_TOKENS=$TOKEN=levente@pelda.hu/" .env
+          sed -i "s/^SEED_USERS=.*/SEED_USERS=Levente=levente@pelda.hu/" .env
+          docker compose up -d --build
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:3100/healthz && break; sleep 2; done
+          curl -fs http://127.0.0.1:3100/healthz
+      - name: Seed és MCP-hívás
+        run: |
+          docker compose exec -T app node --import tsx scripts/seed-dev.ts
+          curl -fs -X POST http://127.0.0.1:3100/mcp \
+            -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+            -H 'accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}' | tee out.json
+          grep -q 'Pályázatfigyelő' out.json
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3100/mcp -d '{}')" = 401
+      - if: failure()
+        run: docker compose logs

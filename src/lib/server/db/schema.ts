@@ -8,10 +8,14 @@ import {
 	doublePrecision,
 	timestamp,
 	jsonb,
+	customType,
 	primaryKey,
 	uniqueIndex,
 	index
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
 
 const id = () =>
 	text('id')
@@ -142,9 +146,17 @@ export const section = pgTable(
 		revision: integer('revision').notNull().default(1),
 		createdAt: createdAt(),
 		updatedAt: ts('updated_at').notNull().defaultNow(),
-		deletedAt: ts('deleted_at')
+		deletedAt: ts('deleted_at'),
+		/** Teljes szöveges keresés: a cím nagyobb súllyal, magyar szótövezéssel. */
+		search: tsvector('search').generatedAlwaysAs(
+			(): ReturnType<typeof sql> =>
+				sql`setweight(to_tsvector('hungarian', coalesce(title, '')), 'A') || setweight(to_tsvector('hungarian', coalesce(content, '')), 'B')`
+		)
 	},
-	(t) => [index('section_document_idx').on(t.documentId, t.position)]
+	(t) => [
+		index('section_document_idx').on(t.documentId, t.position),
+		index('section_search_idx').using('gin', t.search)
+	]
 );
 
 export const sectionRevision = pgTable(
