@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import type { PageProps } from './$types';
 	import AuthCard from '../../../lib/components/AuthCard.svelte';
 	import Avatar from '../../../lib/components/Avatar.svelte';
@@ -10,12 +11,17 @@
 <AuthCard>
 	<h1>Engedélyezed a hozzáférést?</h1>
 	<p class="muted"><strong class="ink">{data.clientName}</strong> hozzáférést kér a nevedben Terézhez.</p>
+	<p class="small lbl-who">Ezzel a fiókkal kapcsolódik:</p>
 	<div class="who">
 		<Avatar name={data.user.name} claude size={34} />
-		<div>
+		<div class="grow">
 			<p class="nm">{data.user.name}</p>
 			<p class="faint small">{data.user.email}</p>
 		</div>
+		<form method="POST" action="/logout">
+			<input type="hidden" name="next" value={page.url.pathname + page.url.search} />
+			<button class="btn ghost sm">Nem én vagyok</button>
+		</form>
 	</div>
 	<ul class="small what">
 		<li>Olvashatja és szerkesztheti mindazt, amihez neked hozzáférésed van.</li>
@@ -34,11 +40,15 @@
 	.ink {
 		color: var(--ink);
 	}
+	.lbl-who {
+		margin: 20px 0 6px;
+		font-weight: 500;
+	}
 	.who {
 		display: flex;
 		align-items: center;
 		gap: 12px;
-		margin: 20px 0;
+		margin: 0 0 20px;
 		padding: 12px;
 		border-radius: var(--r-md);
 		background: var(--sunken);
