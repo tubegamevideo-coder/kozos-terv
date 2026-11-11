@@ -21,7 +21,7 @@ if (!url || !spec) {
 	process.exit(1);
 }
 
-const people = spec.split(',').map((p) => {
+const people = spec.split(',').filter((p) => p.trim()).map((p) => {
 	const [name, email] = p.split('=').map((s) => s.trim());
 	if (!name || !email) throw new Error(`Hibás SEED_USERS elem: ${p}`);
 	return { name, email: email.toLowerCase() };
