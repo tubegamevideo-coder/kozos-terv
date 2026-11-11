@@ -6,7 +6,7 @@ import type { Actor } from '../core';
 import { ok, run, sectionBlock, fromError, toJson } from './format';
 import { registerPrompts } from './prompts';
 
-export const SERVER_INSTRUCTIONS = `Közös tervezőapp: több ember a saját Claude-jával tervez ugyanazon a projekten. A szerver védi a munkát az egymás közti felülírástól – ezt használd ki, ne kerüld meg.
+export const SERVER_INSTRUCTIONS = `Teréz – közös tervezőfelület: több ember a saját Claude-jával tervez ugyanazon a projekten. A felhasználók „Teréz”-ként hivatkoznak rá („nézd meg Terézben…”). A szerver védi a munkát az egymás közti felülírástól – ezt használd ki, ne kerüld meg.
 
 Munkamenet:
 1. Kezdd a get_project_brief hívással (ha nem tudod a projekt azonosítóját: list_projects). Tartsd be a benne lévő projektutasítást (instructions), és mondd el a felhasználónak röviden, mi változott a többiektől az utolsó látogatása óta.
@@ -36,7 +36,7 @@ const baseRevision = z
  */
 export function buildMcpServer(db: Db, actor: Actor) {
 	const server = new McpServer(
-		{ name: 'kozos-terv', title: 'Közös tervezőapp', version: '0.2.0' },
+		{ name: 'terez', title: 'Teréz', version: '0.3.0' },
 		{ instructions: SERVER_INSTRUCTIONS, capabilities: { tools: {}, prompts: {} } }
 	);
 	const ro = { readOnlyHint: true, openWorldHint: false } as const;

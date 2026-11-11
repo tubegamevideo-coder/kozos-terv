@@ -11,7 +11,7 @@
 	const firstName = $derived(data.user.name.split(' ').at(-1));
 </script>
 
-<svelte:head><title>Projektek – Közös tervező</title></svelte:head>
+<svelte:head><title>Projektek – Teréz</title></svelte:head>
 
 <div class="page">
 	<header class="head">
@@ -72,13 +72,13 @@
 		<div class="connect panel">
 			<ol class="steps">
 				<li><strong>claude.ai</strong> vagy a Claude asztali app: <em>Beállítások → Csatlakozók → Egyedi csatlakozó hozzáadása</em></li>
-				<li>Ezt a címet add meg (a név lehet „Közös tervező”):<CopyField value={data.mcpUrl} label="MCP-cím" /></li>
+				<li>Ezt a címet add meg (a neve legyen „Teréz”):<CopyField value={data.mcpUrl} label="MCP-cím" /></li>
 				<li>Kattints a <em>Csatlakozás</em> gombra, lépj be a Google-fiókoddal, majd engedélyezd.</li>
 			</ol>
 			<details class="cc">
 				<summary class="small">Claude Code-ból</summary>
-				<CopyField value={`claude mcp add --transport http kozos-terv ${data.mcpUrl}`} />
-				<p class="faint tiny">Utána Claude Code-ban: <code>/mcp</code> → kozos-terv → Authenticate.</p>
+				<CopyField value={`claude mcp add --transport http terez ${data.mcpUrl}`} />
+				<p class="faint tiny">Utána Claude Code-ban: <code>/mcp</code> → terez → Authenticate.</p>
 			</details>
 		</div>
 

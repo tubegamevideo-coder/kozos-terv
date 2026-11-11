@@ -1,6 +1,6 @@
-# kozos-terv
+# Teréz
 
-Közös tervezőapp: több ember a saját Claude-előfizetésével tervez egy közös projekten, MCP-n
+Közös tervezőfelület (kódnév és repó: `kozos-terv`): több ember a saját Claude-előfizetésével tervez egy közös projekten, MCP-n
 keresztül, úgy, hogy a Claude-ok nem írják felül egymás munkáját. Specifikáció: [`docs/SPEC.md`](docs/SPEC.md).
 
 **Állapot:** 4. lépés kész – webes felület (dokumentumok Markdown/Mermaid-del, szerkesztés,

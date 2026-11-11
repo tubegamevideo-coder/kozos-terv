@@ -60,7 +60,7 @@
 	};
 </script>
 
-<svelte:head><title>{d.title} – Közös tervező</title></svelte:head>
+<svelte:head><title>{d.title} – Teréz</title></svelte:head>
 
 <div class="doc-page">
 	<div class="doc" bind:this={container}>

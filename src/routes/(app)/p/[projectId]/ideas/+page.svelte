@@ -87,7 +87,7 @@
 		</div>
 	{:else}
 		<Empty title={data.ideas.length ? 'Ebben a szűrésben nincs ötlet' : 'Még nincs ötlet'}>
-			{#if !data.ideas.length}Kérd meg a Claude-odat: „ötleteljünk a közös tervezőben a … témáról”, vagy vegyél fel egyet fent.{/if}
+			{#if !data.ideas.length}Kérd meg a Claude-odat: „ötleteljünk Terézben a … témáról”, vagy vegyél fel egyet fent.{/if}
 		</Empty>
 	{/if}
 </div>

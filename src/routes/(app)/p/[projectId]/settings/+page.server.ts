@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '../../../../../lib/server/db/client';
 import { document, project } from '../../../../../lib/server/db/schema';
 import { humanActor, orError, orFail, str } from '../../../../../lib/server/web';
-import { listTrashedSections, setDocumentProtection, updateProjectInstructions } from '../../../../../lib/server/core';
+import { listTrashedSections, setDocumentProtection, updateProjectInfo, updateProjectInstructions } from '../../../../../lib/server/core';
 
 export const load: PageServerLoad = async ({ locals, url, params }) => {
 	const actor = humanActor(locals, url);
@@ -19,6 +19,12 @@ export const load: PageServerLoad = async ({ locals, url, params }) => {
 };
 
 export const actions: Actions = {
+	info: async ({ locals, url, params, request }) => {
+		const actor = humanActor(locals, url);
+		const f = await request.formData();
+		const r = await orFail(updateProjectInfo(getDb(), actor, { projectId: params.projectId, name: str(f, 'name'), goal: str(f, 'goal') }));
+		return r.ok ? { ok: 'Projekt mentve.' } : r.failure;
+	},
 	instructions: async ({ locals, url, params, request }) => {
 		const actor = humanActor(locals, url);
 		const f = await request.formData();

@@ -25,7 +25,7 @@
 	const minutesLeft = (iso: string) => Math.max(1, Math.round((new Date(iso).getTime() - Date.now()) / 60000));
 </script>
 
-<svelte:head><title>{b.project.name} – Közös tervező</title></svelte:head>
+<svelte:head><title>{b.project.name} – Teréz</title></svelte:head>
 
 <div class="page">
 	<header class="head">
@@ -111,7 +111,7 @@
 				</div>
 			{:else}
 				<Empty title="Még nincs dokumentum">
-					<p>Kezdd egy fő tervvel, vagy kérd meg a Claude-odat egy új beszélgetésben: „a közös tervezőben a {b.project.name} projekthez írj egy első vázlatot”.</p>
+					<p>Kezdd egy fő tervvel, vagy kérd meg a Claude-odat egy új beszélgetésben: „Terézben a {b.project.name} projekthez írj egy első vázlatot”.</p>
 				</Empty>
 			{/if}
 		</section>

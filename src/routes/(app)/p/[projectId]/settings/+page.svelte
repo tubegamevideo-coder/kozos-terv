@@ -14,6 +14,21 @@
 	<h1 class="page-title">Beállítások</h1>
 
 	<section class="block">
+		<h2 class="section-title">Projekt</h2>
+		<form method="POST" action="?/info" class="instr" use:enhance={withToast({ reset: false })}>
+			<div>
+				<label class="lbl" for="p-name">Név</label>
+				<input id="p-name" name="name" value={data.project.name} required disabled={data.role === 'viewer'} />
+			</div>
+			<div>
+				<label class="lbl" for="p-goal">Cél egy mondatban</label>
+				<input id="p-goal" name="goal" value={data.project.goal} disabled={data.role === 'viewer'} />
+			</div>
+			{#if data.role !== 'viewer'}<div class="row"><span class="grow"></span><button class="btn">Mentés</button></div>{/if}
+		</form>
+	</section>
+
+	<section class="block">
 		<h2 class="section-title">Szabályok a Claude-oknak</h2>
 		<p class="muted small expl">Minden Claude a munka elején megkapja, és betartja. Írd le, hogyan dolgozzanak ebben a projektben: nyelv, stílus, mit ne csináljanak. Csak ember módosíthatja.</p>
 		<form method="POST" action="?/instructions" class="instr" data-editing="true" use:enhance={withToast({ reset: false })}>

@@ -1,4 +1,4 @@
-# Telepítés az otthoni szerverre
+# Teréz – telepítés az otthoni szerverre
 
 Az app Docker Compose-zal fut: `app` (SvelteKit + MCP), `db` (Postgres) és `tunnel`
 (Cloudflare Tunnel → `https://terv.nebulooo.com`). A weben Google-fiókkal lehet belépni,
@@ -65,14 +65,14 @@ főoldalon (belépés után) a „Tagok meghívása” résznél hívd meg a hel
 ## 4. Claude csatlakoztatása
 
 **claude.ai / Claude asztali app:** Beállítások → Csatlakozók (Connectors) → *Egyedi csatlakozó
-hozzáadása* → URL: `https://terv.nebulooo.com/mcp`. A „Csatlakozás” gomb Google-belépést és egy
+hozzáadása* → név: `Teréz`, URL: `https://terv.nebulooo.com/mcp`. A „Csatlakozás” gomb Google-belépést és egy
 „Engedélyezem” oldalt nyit; utána a Claude a te nevedben dolgozik. A csatlakozó a mobilappban is
 megjelenik.
 
 **Claude Code:**
 ```bash
-claude mcp add --scope user --transport http kozos-terv https://terv.nebulooo.com/mcp
-# Claude Code-ban: /mcp → kozos-terv → Authenticate
+claude mcp add --scope user --transport http terez https://terv.nebulooo.com/mcp
+# Claude Code-ban: /mcp → terez → Authenticate
 ```
 
 A kapcsolódott klienseket a főoldalon látod, és bármikor visszavonhatod.

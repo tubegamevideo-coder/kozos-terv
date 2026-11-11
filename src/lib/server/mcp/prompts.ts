@@ -14,7 +14,7 @@ export function registerPrompts(server: McpServer) {
 		},
 		({ projekt }) =>
 			user(
-				`Nézd meg a közös tervezőappban${projekt ? ` a(z) „${projekt}” projektet` : ' a projektemet (ha több van, kérdezz)'}: hívd a get_project_brief-et, és foglald össze röviden, mi változott a többiektől, mióta nem voltam itt. Emeld ki a nekem szóló nyitott javaslatokat, a vitatott kérdéseket és az aktív zárakat. Ne változtass semmit.`
+				`Nézd meg Terézben${projekt ? ` a(z) „${projekt}” projektet` : ' a projektemet (ha több van, kérdezz)'}: hívd a get_project_brief-et, és foglald össze röviden, mi változott a többiektől, mióta nem voltam itt. Emeld ki a nekem szóló nyitott javaslatokat, a vitatott kérdéseket és az aktív zárakat. Ne változtass semmit.`
 			)
 	);
 
@@ -27,7 +27,7 @@ export function registerPrompts(server: McpServer) {
 		},
 		({ tema }) =>
 			user(
-				`Ötleteljünk a közös tervezőappban erről: „${tema}”. Előbb hívd a get_project_brief-et és nézd meg a meglévő ötleteket (list_ideas), hogy ne ismételjünk. Aztán adj 5–8 változatos ötletet röviden; amelyiket jóváhagyom, azt rögzítsd add_idea-val, címkével. A dokumentumokba most ne írj.`
+				`Ötleteljünk Terézben erről: „${tema}”. Előbb hívd a get_project_brief-et és nézd meg a meglévő ötleteket (list_ideas), hogy ne ismételjünk. Aztán adj 5–8 változatos ötletet röviden; amelyiket jóváhagyom, azt rögzítsd add_idea-val, címkével. A dokumentumokba most ne írj.`
 			)
 	);
 
@@ -40,7 +40,7 @@ export function registerPrompts(server: McpServer) {
 		},
 		({ dokumentum }) =>
 			user(
-				`Nézd át kritikusan a(z) „${dokumentum}” dokumentumot a közös tervezőappban (get_project_brief, majd read_document full: true). Keress ellentmondásokat, hiányzó döntéseket, kockázatokat és homályos részeket. Előbb listázd nekem őket fontossági sorrendben; amit jóváhagyok, azt megjegyzésként (add_comment) vagy – védett dokumentumnál – javaslatként (propose_change) rögzítsd. A nyitott kérdéseket vedd fel add_question-nel.`
+				`Nézd át kritikusan a(z) „${dokumentum}” dokumentumot Terézben (get_project_brief, majd read_document full: true). Keress ellentmondásokat, hiányzó döntéseket, kockázatokat és homályos részeket. Előbb listázd nekem őket fontossági sorrendben; amit jóváhagyok, azt megjegyzésként (add_comment) vagy – védett dokumentumnál – javaslatként (propose_change) rögzítsd. A nyitott kérdéseket vedd fel add_question-nel.`
 			)
 	);
 }

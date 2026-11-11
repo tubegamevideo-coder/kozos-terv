@@ -50,7 +50,7 @@
 	<aside class="side" aria-label="Navigáció">
 		<a class="brand" href="/">
 			<span class="mark" aria-hidden="true"><i></i><i></i></span>
-			<span>Közös tervező</span>
+			<span>Teréz</span>
 		</a>
 
 		<button class="search" onclick={() => (paletteOpen = true)}>
@@ -112,7 +112,7 @@
 	<div class="main">
 		<header class="topbar">
 			<button class="btn ghost icon" onclick={() => (menuOpen = !menuOpen)} aria-label="Menü"><Menu size={18} /></button>
-			<span class="ell">{nav?.name ?? 'Közös tervező'}</span>
+			<span class="ell">{nav?.name ?? 'Teréz'}</span>
 			<button class="btn ghost icon" onclick={() => (paletteOpen = true)} aria-label="Keresés"><Search size={18} /></button>
 		</header>
 		{@render children()}

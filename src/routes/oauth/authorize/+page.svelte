@@ -5,11 +5,11 @@
 	let { data }: PageProps = $props();
 </script>
 
-<svelte:head><title>Hozzáférés engedélyezése – Közös tervező</title></svelte:head>
+<svelte:head><title>Hozzáférés engedélyezése – Teréz</title></svelte:head>
 
 <AuthCard>
 	<h1>Engedélyezed a hozzáférést?</h1>
-	<p class="muted"><strong class="ink">{data.clientName}</strong> szeretne hozzáférni a közös tervezőhöz a nevedben.</p>
+	<p class="muted"><strong class="ink">{data.clientName}</strong> hozzáférést kér a nevedben Terézhez.</p>
 	<div class="who">
 		<Avatar name={data.user.name} claude size={34} />
 		<div>

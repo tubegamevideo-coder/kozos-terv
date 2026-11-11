@@ -64,6 +64,31 @@ export async function createProject(
 	});
 }
 
+/** Projekt átnevezése és a cél módosítása (csak ember, szerkesztő). */
+export async function updateProjectInfo(
+	db: Db,
+	actor: Actor,
+	input: { projectId: string; name: string; goal: string }
+) {
+	if (actor.kind !== 'human') throw new CoreError('HUMAN_ONLY', 'A projekt nevét és célját csak ember módosíthatja.');
+	const name = input.name?.trim();
+	if (!name) throw new CoreError('VALIDATION', 'A projektnek név kell.');
+	return db.transaction(async (tx) => {
+		const { project: p } = await loadProject(tx, actor, input.projectId, 'editor');
+		await tx
+			.update(project)
+			.set({ name, goal: input.goal.trim(), updatedAt: clock.now() })
+			.where(eq(project.id, p.id));
+		await recordEvent(tx, actor, {
+			projectId: p.id,
+			type: 'project.updated',
+			targetType: 'project',
+			targetId: p.id,
+			summary: p.name !== name ? `A projekt új neve: „${name}” (korábban „${p.name}”)` : 'A projekt célja módosult'
+		});
+	});
+}
+
 /** A projektutasítás (a Claude-nak szóló szabályok) csak emberi írással változhat. */
 export async function updateProjectInstructions(
 	db: Db,

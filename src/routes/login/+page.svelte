@@ -4,7 +4,7 @@
 	let { data }: PageProps = $props();
 </script>
 
-<svelte:head><title>Belépés – Közös tervező</title></svelte:head>
+<svelte:head><title>Belépés – Teréz</title></svelte:head>
 
 <AuthCard>
 	<h1>Belépés</h1>

@@ -3,7 +3,7 @@
 	import AuthCard from '../lib/components/AuthCard.svelte';
 </script>
 
-<svelte:head><title>Hiba – Közös tervező</title></svelte:head>
+<svelte:head><title>Hiba – Teréz</title></svelte:head>
 
 <AuthCard>
 	<h1>{page.status === 404 ? 'Nincs ilyen oldal' : page.status === 403 ? 'Ehhez nincs jogod' : 'Hiba történt'}</h1>

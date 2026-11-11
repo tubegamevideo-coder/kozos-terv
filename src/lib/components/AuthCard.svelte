@@ -5,7 +5,7 @@
 
 <div class="wrap">
 	<div class="card">
-		<p class="brand"><span class="mark" aria-hidden="true"><i></i><i></i></span> Közös tervező</p>
+		<p class="brand"><span class="mark" aria-hidden="true"><i></i><i></i></span> Teréz</p>
 		{@render children()}
 	</div>
 </div>

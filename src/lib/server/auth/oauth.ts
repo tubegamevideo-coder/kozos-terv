@@ -69,7 +69,7 @@ export function protectedResourceMetadata(cfg: AuthConfig) {
 		authorization_servers: [cfg.origin],
 		scopes_supported: [...SCOPES],
 		bearer_methods_supported: ['header'],
-		resource_name: 'Közös tervezőapp'
+		resource_name: 'Teréz'
 	};
 }
 

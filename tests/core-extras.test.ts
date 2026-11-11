@@ -187,3 +187,17 @@ describe('Markdown-import', () => {
 		await expectCoreError(importMarkdown(db, claude(s.levente.id), { projectId: s.project.id, markdown: '## x' }), 'HUMAN_ONLY');
 	});
 });
+
+describe('projekt adatai', () => {
+	it('ember átnevezheti, a Claude nem; az esemény naplózva', async () => {
+		const { updateProjectInfo, getChanges } = await import('../src/lib/server/core');
+		const s = await seed(db);
+		await expectCoreError(updateProjectInfo(db, claude(s.levente.id), { projectId: s.project.id, name: 'X', goal: '' }), 'HUMAN_ONLY');
+		await expectCoreError(updateProjectInfo(db, human(s.vendeg.id), { projectId: s.project.id, name: 'X', goal: '' }), 'FORBIDDEN');
+		await updateProjectInfo(db, human(s.kollega.id), { projectId: s.project.id, name: 'Teréz', goal: 'Közös tervezés' });
+		const [p] = await listProjects(db, human(s.levente.id));
+		expect(p).toMatchObject({ name: 'Teréz', goal: 'Közös tervezés' });
+		const ch = await getChanges(db, human(s.levente.id), { projectId: s.project.id, limit: 200 });
+		expect(ch.items.at(-1)?.summary).toContain('új neve: „Teréz”');
+	});
+});

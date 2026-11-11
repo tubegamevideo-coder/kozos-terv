@@ -1,6 +1,6 @@
-# Közös tervezőapp – specifikáció
+# Teréz – specifikáció
 
-Munkanév: `kozos-terv` · Cím: `https://terv.nebulooo.com` · Utolsó frissítés: 2026-11-11
+Név: **Teréz** · Kódnév és repó: `kozos-terv` · Cím: `https://terv.nebulooo.com` · Utolsó frissítés: 2026-11-11
 
 > Forrás: a „Közös tervezőapp – terv és útmutató” Claude-dokumentum, a 2026-11-11-i döntésekkel
 > (TypeScript-stack Django helyett, Google-belépés, otthoni szerver Cloudflare Tunnellel).
@@ -58,7 +58,7 @@ Se az MCP-réteg, se a felület nem ír közvetlenül az adatbázisba.
 | 5 | Emberi szerkesztő? | Egyszerű Markdown-szerkesztő (szövegdoboz + előnézet), nem WYSIWYG |
 | 6 | Webes belépés | Google-fiók (magán Gmail) → OAuth-képernyő „External”, tesztmódban, a tagok tesztfelhasználók; callback: `/api/auth/callback/google` |
 | 7 | Zár alapideje | 20 perc, meghosszabbítható (max. 120 perc) |
-| 8 | Név és domain | `kozos-terv`, `terv.nebulooo.com` |
+| 8 | Név és domain | **Teréz** (a kódban és a repóban `kozos-terv`), `terv.nebulooo.com` |
 | 9 | Stack | TypeScript full-stack (lásd 8. fejezet), nem Django |
 | 10 | Első éles projekt | A pályázatfigyelő app tervezése |
 
@@ -160,7 +160,7 @@ kér. Később MCP-promptok (pl. „ötletelés egy kérdésről”) és MCP App
   láthatók és visszavonhatók.
 - **Jogosultság minden hívásnál** a közös magban: munkatér-tagság és szerepkör (`viewer` nem ír).
 - **Mentés** naponta a NAS-ra (`pg_dump`).
-- A Claude Code ugyanehhez kapcsolódik: `claude mcp add --transport http kozos-terv https://terv.nebulooo.com/mcp`.
+- A Claude Code ugyanehhez kapcsolódik: `claude mcp add --transport http terez https://terv.nebulooo.com/mcp`.
 
 ## 8. Technikai stack
 

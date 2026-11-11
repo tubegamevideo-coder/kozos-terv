@@ -1,4 +1,7 @@
-# kozos-terv – szabályok Claude-nak
+# Teréz (kozos-terv) – szabályok Claude-nak
+
+A termék neve a felületen és a Claude-oknak: **Teréz**. A kódban, a repóban és a
+Docker-nevekben marad a `kozos-terv`.
 
 A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgass.
 
