@@ -5,7 +5,8 @@ keresztül, úgy, hogy a Claude-ok nem írják felül egymás munkáját. Specif
 
 **Állapot:** 4. lépés kész – webes felület (dokumentumok Markdown/Mermaid-del, szerkesztés,
 javaslatok elfogadása, előzmény, kérdések, ötletek, élő frissítés), Google-belépés, saját OAuth 2.1
-szerver a Claude-oknak, nyilvános cím Cloudflare Tunnelen; MCP-szerver 24 eszközzel és 3 prompttal.
+szerver a Claude-oknak, nyilvános cím Cloudflare Tunnelen; MCP-szerver 27 eszközzel és 3 prompttal.
+Új: repóból hivatkozott, csak olvasható szakaszok (GitHub/GitLab-fájl, magától frissül; SPEC 11. fejezet).
 Telepítés az otthoni szerverre: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Fejlesztés
@@ -25,8 +26,9 @@ npm run dev
 
 | Hely | Mi van benne |
 |---|---|
-| `src/lib/server/db/schema.ts` | Drizzle-séma (16 tábla) |
+| `src/lib/server/db/schema.ts` | Drizzle-séma (22 tábla) |
 | `src/lib/server/core/` | Közös mag – minden írás itt dől el |
+| `src/lib/server/repo/` | GitHub/GitLab-fájl olvasása és szakasszá alakítása (repóhivatkozás) |
 | `src/lib/server/mcp/` | MCP-eszközök, promptok, a `/mcp` kezelője |
 | `src/routes/mcp/+server.ts` | A `/mcp` végpont (Streamable HTTP, állapotmentes) |
 | `src/lib/server/auth/` | Google-belépés, munkamenetek, OAuth 2.1 szerver (`oauth.ts`) |
@@ -41,3 +43,5 @@ npm run dev
 - **Szakaszzár:** `lockSection` (20 perc, max. 120), lejár magától; más zárja alatt `SECTION_LOCKED`.
 - **Védett dokumentum:** a Claude csak `proposeChange`-et tehet, ember fogad el (`acceptProposal`).
 - **Eseménynapló:** minden írás eseményt ír; `getChangesSinceLastVisit` a „mi változott, mióta itt voltam”.
+- **Repóhivatkozás:** `linkRepoFile` – csak olvasható szakasz egy felvett repó fájljából; a változás
+  `sync` revízióként jön át (`refreshRepoSection`, olvasáskor magától), írásra `REPO_LINKED`.

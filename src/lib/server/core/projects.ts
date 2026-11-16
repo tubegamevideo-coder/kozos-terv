@@ -4,6 +4,7 @@ import {
 	document,
 	event,
 	project,
+	projectRepo,
 	projectVisit,
 	proposal,
 	section,
@@ -16,6 +17,8 @@ import {
 import { loadDocument, loadProject } from './access';
 import { getChangesSinceLastVisit, markVisit, type VisitChannel } from './changes';
 import { listQuestions } from './questions';
+import { getSectionSources, sourceView, type SourceView } from './sources';
+import { sourceLabel } from '../repo/ref';
 import { clock, type Actor } from './types';
 
 /** Az első mondat (vagy legfeljebb ~160 karakter) a vázlatnézethez, Markdown-jelölések nélkül. */
@@ -107,6 +110,8 @@ export interface DocumentSectionView {
 	/** Ki írt bele utoljára (ember vagy a Claude-ja). */
 	lastEdit: { by: string; userId: string; via: 'human' | 'claude'; at: Date } | null;
 	updatedAt: Date;
+	/** Repóhivatkozású szakasznál a forrás (ilyenkor csak olvasható). */
+	source: SourceView | null;
 }
 
 /**
@@ -148,9 +153,10 @@ export async function readDocument(
 				.orderBy(sectionRevision.sectionId, desc(sectionRevision.revision))
 		: [];
 	const lastBy = new Map(lastEdits.map((e) => [e.sectionId, { by: e.by, userId: e.userId, via: e.via, at: e.at }]));
-	const [locks, props, [newSecProps]] = await Promise.all([
+	const [locks, props, sources, [newSecProps]] = await Promise.all([
 		activeLocks(db, ids),
 		openProposalCounts(db, ids),
+		getSectionSources(db, ids),
 		db
 			.select({ n: count() })
 			.from(proposal)
@@ -172,7 +178,8 @@ export async function readDocument(
 				lock: locks.get(r.id) ?? null,
 				openProposals: props.get(r.id) ?? 0,
 				lastEdit: lastBy.get(r.id) ?? null,
-				updatedAt: r.updatedAt
+				updatedAt: r.updatedAt,
+				source: sources.has(r.id) ? sourceView(sources.get(r.id)!) : null
 			})
 		)
 	};
@@ -204,6 +211,12 @@ export async function getProjectBrief(
 				.orderBy(asc(section.position))
 		: [];
 	const locks = await activeLocks(db, secs.map((s) => s.id));
+	const sources = await getSectionSources(db, secs.map((s) => s.id));
+	const repos = await db
+		.select({ provider: projectRepo.provider, repo: projectRepo.repo })
+		.from(projectRepo)
+		.where(and(eq(projectRepo.projectId, p.id), isNull(projectRepo.deletedAt)))
+		.orderBy(asc(projectRepo.createdAt));
 	const secTitle = new Map(secs.map((s) => [s.id, s.title]));
 
 	const openProps = docs.length
@@ -247,8 +260,17 @@ export async function getProjectBrief(
 			...d,
 			sections: secs
 				.filter((s) => s.documentId === d.id)
-				.map((s) => ({ id: s.id, title: s.title, revision: s.revision, ...(locks.has(s.id) ? { lock: locks.get(s.id) } : {}) }))
+				.map((s) => ({
+					id: s.id,
+					title: s.title,
+					revision: s.revision,
+					...(locks.has(s.id) ? { lock: locks.get(s.id) } : {}),
+					// Repóhivatkozású, csak olvasható szakasz: honnan jön.
+					...(sources.has(s.id) ? { fromRepo: sourceLabel(sources.get(s.id)!) } : {})
+				}))
 		})),
+		/** A projektben hivatkozható repók (link_repo_file); üres, ha nincs ilyen. */
+		linkableRepos: repos.map((r) => `${r.provider}:${r.repo}`),
 		openQuestions: questions.map((q) => ({ id: q.id, title: q.title, status: q.status, raisedBy: q.raisedBy })),
 		activeLocks: [...locks.values()].map((l) => ({ ...l, sectionTitle: secTitle.get(l.sectionId) })),
 		openProposals: openProps.map((x) => ({

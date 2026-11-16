@@ -7,6 +7,7 @@ import { CoreError } from './errors';
 import { recordEvent } from './events';
 import { assertNotLockedByOther } from './locks';
 import { assertFreshRevision, createSectionTx, writeRevision } from './sections';
+import { assertNotRepoLinked } from './sources';
 import { clock, type Actor } from './types';
 
 const need = (s: string | undefined, what: string) => {
@@ -29,6 +30,7 @@ export async function proposeChange(db: Db, actor: Actor, input: ProposeChangeIn
 	return db.transaction(async (tx) => {
 		const ctx = await loadSection(tx, actor, input.sectionId, 'editor', { forUpdate: true });
 		if (ctx.section.deletedAt) throw new CoreError('IN_TRASH', 'A szakasz a lomtárban van.');
+		await assertNotRepoLinked(tx, ctx.section);
 		await assertFreshRevision(tx, ctx, input.baseRevision);
 		const title = input.title?.trim() || ctx.section.title;
 		const [p] = await tx

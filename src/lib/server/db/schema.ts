@@ -35,12 +35,15 @@ export const revisionKind = pgEnum('revision_kind', [
 	'restore',
 	'proposal',
 	'trash',
-	'untrash'
+	'untrash',
+	/** Repóhivatkozású szakasz frissítése a repóból (11. fejezet). */
+	'sync'
 ]);
 export const proposalStatus = pgEnum('proposal_status', ['open', 'accepted', 'rejected', 'conflicted']);
 export const questionStatus = pgEnum('question_status', ['open', 'disputed', 'decided']);
 export const ideaStatus = pgEnum('idea_status', ['new', 'investigating', 'adopted', 'rejected']);
 export const visitChannel = pgEnum('visit_channel', ['web', 'mcp']);
+export const repoProvider = pgEnum('repo_provider', ['github', 'gitlab']);
 
 /** Better Auth-kompatibilis felhasználótábla (a 3. lépésben a Better Auth ezt használja). */
 export const user = pgTable('user', {
@@ -346,6 +349,61 @@ export const projectVisit = pgTable(
 	},
 	(t) => [primaryKey({ columns: [t.userId, t.projectId, t.channel] })]
 );
+
+// ------------------------------------------------------------ repóhivatkozás (SPEC 11.)
+
+/**
+ * A projektben hivatkozható repók. Csak ezekből lehet szakaszt hivatkozni, így egy projektből
+ * nem lehet a szerver tokenjével olvasható, de ide nem tartozó privát repókat behúzni.
+ */
+export const projectRepo = pgTable(
+	'project_repo',
+	{
+		id: id(),
+		projectId: text('project_id')
+			.notNull()
+			.references(() => project.id),
+		provider: repoProvider('provider').notNull(),
+		/** GitHubon `tulajdonos/név`, GitLabon a teljes útvonal (`csoport/alcsoport/projekt`). */
+		repo: text('repo').notNull(),
+		createdBy: text('created_by')
+			.notNull()
+			.references(() => user.id),
+		createdAt: createdAt(),
+		deletedAt: ts('deleted_at')
+	},
+	(t) => [
+		uniqueIndex('project_repo_live_uq')
+			.on(t.projectId, t.provider, t.repo)
+			.where(sql`deleted_at is null`)
+	]
+);
+
+/** Repóhivatkozású szakasz forrása. Ha egy szakasznak van ilyen sora, csak olvasható. */
+export const sectionSource = pgTable('section_source', {
+	sectionId: text('section_id')
+		.primaryKey()
+		.references(() => section.id),
+	provider: repoProvider('provider').notNull(),
+	repo: text('repo').notNull(),
+	path: text('path').notNull(),
+	/** Ág, címke vagy commit; null = a repó alapértelmezett ága. */
+	ref: text('ref'),
+	/** A legutóbb átvett tartalom azonosítója (git blob SHA): ebből látszik, változott-e a fájl. */
+	blobSha: text('blob_sha').notNull(),
+	webUrl: text('web_url').notNull(),
+	/** Aki a hivatkozást létrehozta; a frissítések szerzője is ő. */
+	createdBy: text('created_by')
+		.notNull()
+		.references(() => user.id),
+	createdAt: createdAt(),
+	/** Utoljára ekkor kérdeztük meg a repót (sikeresen vagy sikertelenül). */
+	checkedAt: ts('checked_at').notNull(),
+	/** Utoljára ekkor változott a tartalom a repóból. */
+	syncedAt: ts('synced_at').notNull(),
+	/** A legutóbbi sikertelen frissítés oka; sikeres ellenőrzéskor törlődik. */
+	lastError: text('last_error')
+});
 
 // ------------------------------------------------------------ belépés és OAuth
 

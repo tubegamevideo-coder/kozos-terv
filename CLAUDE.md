@@ -11,6 +11,9 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
 - `src/lib/server/core/` – **a közös mag**. Minden írás (szakasz, zár, javaslat, kérdés, ötlet,
   megjegyzés, esemény) csak innen mehet. Az MCP-réteg és a felület ezt hívja, sosem az
   adatbázist közvetlenül.
+- `src/lib/server/repo/` – GitHub/GitLab-olvasó (`client.ts`), címek (`ref.ts`), fájl → szakasz
+  (`content.ts`). Hálózati hívás sosem megy tranzakción belül; a tesztek a `repoClient.fetchFile`-t
+  cserélik le (mint a `clock.now`-t).
 - `src/lib/server/mcp/` – MCP-eszközök (`server.ts`), promptok, a `/mcp` kezelője (`http.ts`).
   Az eszközleírások tanítják a Claude-ot: ha a viselkedésen akarsz változtatni, ott kezdd.
 - `src/lib/server/auth/` – Google-belépés, munkamenet, saját OAuth 2.1 szerver (`oauth.ts`),
@@ -25,7 +28,7 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
 - Minden szakaszírás egy tranzakció: `SELECT … FOR UPDATE` a szakasz során, utána ellenőrzés
   (lomtár, jogosultság, védettség, zár, `baseRevision`), majd új revízió + esemény.
 - Hibát `CoreError`-ral dobunk, stabil `code`-dal (`STALE_REVISION`, `SECTION_LOCKED`,
-  `PROTECTED_DOCUMENT`, `FORBIDDEN`, `NOT_FOUND`, `EDIT_NO_MATCH`, `EDIT_AMBIGUOUS`, …) és
+  `PROTECTED_DOCUMENT`, `FORBIDDEN`, `NOT_FOUND`, `EDIT_NO_MATCH`, `EDIT_AMBIGUOUS`, `REPO_LINKED`, …) és
   a Claude-nak hasznos `details`-szel (friss tartalom, diff, zártartó).
 - Semmit nem törlünk ténylegesen: `deletedAt` (lomtár). A revíziók nem módosíthatók.
 - Minden revízión és eseményen `actorKind`: `human` vagy `claude`.

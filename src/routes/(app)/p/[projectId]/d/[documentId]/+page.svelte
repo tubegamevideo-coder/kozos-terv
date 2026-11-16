@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
-	import { History, Lock, MessageSquare, PenLine, Plus, ShieldCheck, Trash2, GitPullRequestArrow } from '@lucide/svelte';
+	import { FolderGit2, History, Lock, MessageSquare, PenLine, Plus, RefreshCw, ShieldCheck, Trash2, GitPullRequestArrow } from '@lucide/svelte';
 	import type { PageProps } from './$types';
 	import Avatar from '../../../../../../lib/components/Avatar.svelte';
 	import Author from '../../../../../../lib/components/Author.svelte';
@@ -26,7 +26,11 @@
 	const editing = $derived(failedId ?? data.editId);
 	let openComments = $state<Record<string, boolean>>({});
 	let adding = $state(false);
+	let linking = $state(false);
 	let saving = $state(false);
+	const confirmTrash = (e: SubmitEvent) => {
+		if (!confirm('Lomtárba teszed a szakaszt? Az előzményből bármikor visszaállítható.')) e.preventDefault();
+	};
 
 	let container = $state<HTMLElement>();
 	$effect(() => {
@@ -114,13 +118,35 @@
 								<MessageSquare size={14} />{s.comments.length ? ` ${s.comments.length}` : ''}<span class="sr-only">Megjegyzések</span>
 							</button>
 							<a class="btn ghost sm" href={`${base}/s/${s.id}/history`} title="Előzmény"><History size={14} /><span class="sr-only">Előzmény</span></a>
-							{#if canEdit && editing !== s.id && !(s.lock && s.lock.heldByUserId !== data.user.id)}
+							{#if canEdit && !s.source && editing !== s.id && !(s.lock && s.lock.heldByUserId !== data.user.id)}
 								<a class="btn ghost sm" href={`?edit=${s.id}#s-${s.id}`} data-sveltekit-noscroll><PenLine size={14} /><span class="lt"> Szerkesztés</span></a>
 							{/if}
 						</div>
 					</div>
 
-					{#if editing === s.id && canEdit}
+					{#if s.source}
+						<div class="srcline small">
+							<FolderGit2 size={14} />
+							<span class="grow">
+								A repóból, itt csak olvasható:
+								<a href={s.source.webUrl} target="_blank" rel="noopener noreferrer" title="Megnyitás és szerkesztés a repóban">{s.source.repo}/{s.source.path}</a>{s.source.ref ? ` @ ${s.source.ref}` : ''}
+								<span class="faint" title={`A tartalom utoljára ${ago(s.source.syncedAt)} változott (${s.source.blobSha}).`}>· ellenőrizve {ago(s.source.checkedAt)}</span>
+							</span>
+							{#if canEdit}
+								<form method="POST" action="?/refresh" use:enhance={withToast()}>
+									<input type="hidden" name="sectionId" value={s.id} />
+									<button class="btn ghost sm" title="Frissítés most a repóból"><RefreshCw size={13} /><span class="lt"> Frissítés</span></button>
+								</form>
+								<form method="POST" action="?/trash" use:enhance={withToast()} onsubmit={confirmTrash}>
+									<input type="hidden" name="sectionId" value={s.id} /><input type="hidden" name="baseRevision" value={s.revision} />
+									<button class="btn ghost sm" title="Lomtárba"><Trash2 size={13} /><span class="sr-only">Lomtárba</span></button>
+								</form>
+							{/if}
+						</div>
+						{#if s.source.lastError}<p class="srcerr small">A legutóbbi frissítés nem sikerült, a korábbi tartalom látszik. {s.source.lastError}</p>{/if}
+					{/if}
+
+					{#if editing === s.id && canEdit && !s.source}
 						{#if failedId === s.id && f?.error}
 							<div class="conflict">
 								<p><strong>{f.error}</strong></p>
@@ -144,7 +170,7 @@
 								<button class="btn" disabled={saving}>{saving ? 'Mentés…' : 'Mentés'}</button>
 							</div>
 						</form>
-						<form method="POST" action="?/trash" class="trash" use:enhance={withToast()} onsubmit={(e) => { if (!confirm('Lomtárba teszed a szakaszt? Az előzményből bármikor visszaállítható.')) e.preventDefault(); }}>
+						<form method="POST" action="?/trash" class="trash" use:enhance={withToast()} onsubmit={confirmTrash}>
 							<input type="hidden" name="sectionId" value={s.id} /><input type="hidden" name="baseRevision" value={s.revision} />
 							<button class="btn ghost sm"><Trash2 size={14} /> Lomtárba</button>
 						</form>
@@ -207,8 +233,43 @@
 						<button class="btn">Hozzáadás</button>
 					</div>
 				</form>
+			{:else if linking}
+				<form method="POST" action="?/link" class="editor newsec" data-editing="true" use:enhance={withToast({ reset: false, onDone: () => (linking = false) })}>
+					<p class="small linkhelp">
+						<FolderGit2 size={15} />
+						<span>A szakasz egy repóban élő fájlt mutat (pl. a rendszerterv a <code>docs/</code> mappából). Itt csak olvasható: a repóban szerkeszted, és a változás magától átjön. Az útvonal helyére a fájl webes címét is beillesztheted.</span>
+					</p>
+					{#if data.repos.length}
+						<div class="ebar">
+							<select name="repo" aria-label="Repó">
+								{#each data.repos as r (r.id)}<option value={`${r.provider}:${r.repo}`}>{r.repo}{r.provider === 'gitlab' ? ' (GitLab)' : ''}</option>{/each}
+							</select>
+							<input name="path" required placeholder="docs/architektura.md" aria-label="Fájl útvonala vagy webes címe" />
+							<input name="ref" class="refin" placeholder="ág (nem kötelező)" aria-label="Ág, címke vagy commit" />
+						</div>
+						<input name="title" placeholder="Cím (nem kötelező; alapból a fájl első címsora)" aria-label="Cím" />
+						<div class="ebar">
+							<select name="afterSectionId" aria-label="Hova kerüljön">
+								<option value="">A dokumentum végére</option>
+								{#each d.sections as s (s.id)}<option value={s.id}>„{s.title}” után</option>{/each}
+							</select>
+							<input name="reason" placeholder="Miért kell ez a szakasz?" aria-label="Indoklás" />
+							<button type="button" class="btn ghost" onclick={() => (linking = false)}>Mégse</button>
+							<button class="btn">Hivatkozás</button>
+						</div>
+					{:else}
+						<p class="small muted">
+							Ebben a projektben még nincs hivatkozható repó.
+							{data.role === 'owner' ? 'Vedd fel' : 'A munkatér tulajdonosa veheti fel'} a <a href={`${base}/settings#repok`}>Beállításokban</a>.
+						</p>
+						<div class="ebar"><span class="grow"></span><button type="button" class="btn ghost" onclick={() => (linking = false)}>Bezárás</button></div>
+					{/if}
+				</form>
 			{:else}
-				<button class="addsec" onclick={() => (adding = true)}><Plus size={16} /> Új szakasz</button>
+				<div class="addrow">
+					<button class="addsec" onclick={() => (adding = true)}><Plus size={16} /> Új szakasz</button>
+					<button class="addsec repo" onclick={() => (linking = true)} title="Csak olvasható szakasz egy GitHub- vagy GitLab-fájlból"><FolderGit2 size={16} /> A repóból</button>
+				</div>
 			{/if}
 		{/if}
 	</div>
@@ -218,6 +279,7 @@
 		{#each d.sections as s (s.id)}
 			<a href={`#s-${s.id}`} class:hasLock={!!s.lock}>
 				<span class="grow">{s.title}</span>
+				{#if s.source}<span class="srcic" title="A repóból, csak olvasható"><FolderGit2 size={12} /></span>{/if}
 				{#if s.lock}<Lock size={12} />{/if}
 				{#if s.openProposals}<span class="pdot" title="Javaslat vár"></span>{/if}
 			</a>
@@ -409,6 +471,45 @@
 	.trash {
 		margin-top: 6px;
 	}
+	/* Repóból hivatkozott szakasz: honnan jön, frissítés */
+	.srcline {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: -4px 0 12px;
+		padding: 6px 4px 6px 10px;
+		border-radius: var(--r-sm);
+		background: var(--sunken);
+		color: var(--graphite);
+	}
+	.srcline > :global(svg) {
+		flex: none;
+		color: var(--teal);
+	}
+	.srcline a {
+		overflow-wrap: anywhere;
+	}
+	.srcerr {
+		margin: -6px 0 12px;
+		padding: 6px 10px;
+		border-radius: var(--r-sm);
+		background: var(--danger-wash);
+		color: var(--ink);
+	}
+	.linkhelp {
+		display: flex;
+		gap: 8px;
+		margin: 0;
+		color: var(--graphite);
+	}
+	.linkhelp :global(svg) {
+		flex: none;
+		margin-top: 2px;
+		color: var(--teal);
+	}
+	.ebar .refin {
+		flex: 0 0 160px;
+	}
 	.conflict {
 		margin-bottom: 12px;
 		padding: 12px 14px;
@@ -487,20 +588,29 @@
 		display: flex;
 		gap: 8px;
 	}
+	.addrow {
+		display: flex;
+		gap: 10px;
+		width: calc(100% - 150px);
+		max-width: 720px;
+		margin: 20px 0 0 150px;
+	}
 	.addsec {
+		flex: 1;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 8px;
-		width: calc(100% - 150px);
-		max-width: 720px;
-		margin: 20px 0 0 150px;
 		height: 44px;
 		border: 1px dashed var(--rule-strong);
 		border-radius: var(--r-md);
 		background: none;
 		color: var(--graphite);
 		cursor: pointer;
+	}
+	.addsec.repo {
+		flex: 0 0 auto;
+		padding: 0 18px;
 	}
 	.addsec:hover {
 		border-color: var(--teal);
@@ -548,6 +658,12 @@
 		color: var(--claude);
 		flex: none;
 	}
+	.outline a .srcic {
+		display: inline-flex;
+	}
+	.outline a .srcic :global(svg) {
+		color: var(--faint);
+	}
 	.pdot {
 		width: 7px;
 		height: 7px;
@@ -573,9 +689,12 @@
 		.newsec {
 			margin-left: 0;
 		}
-		.addsec {
+		.addrow {
 			margin-left: 0;
 			width: 100%;
+		}
+		.ebar .refin {
+			flex: 1 1 100%;
 		}
 		.sec {
 			grid-template-columns: 1fr;

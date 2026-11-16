@@ -15,4 +15,6 @@ export * from './search';
 export * from './import';
 export * from './members';
 export * from './review';
+export * from './repos';
+export { sourceView, type SourceView } from './sources';
 export { lineDiff, type DiffLine } from './diff';

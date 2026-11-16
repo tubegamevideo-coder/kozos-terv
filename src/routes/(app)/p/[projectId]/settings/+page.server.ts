@@ -3,7 +3,16 @@ import type { Actions, PageServerLoad } from './$types';
 import { getDb } from '../../../../../lib/server/db/client';
 import { document, project } from '../../../../../lib/server/db/schema';
 import { humanActor, orError, orFail, str } from '../../../../../lib/server/web';
-import { listTrashedSections, setDocumentProtection, updateProjectInfo, updateProjectInstructions } from '../../../../../lib/server/core';
+import {
+	addProjectRepo,
+	listProjectRepos,
+	listTrashedSections,
+	removeProjectRepo,
+	setDocumentProtection,
+	updateProjectInfo,
+	updateProjectInstructions
+} from '../../../../../lib/server/core';
+import { repoTokens } from '../../../../../lib/server/repo/client';
 
 export const load: PageServerLoad = async ({ locals, url, params }) => {
 	const actor = humanActor(locals, url);
@@ -15,7 +24,8 @@ export const load: PageServerLoad = async ({ locals, url, params }) => {
 		.from(document)
 		.where(and(eq(document.projectId, params.projectId), isNull(document.deletedAt)))
 		.orderBy(asc(document.createdAt));
-	return { instructions: p?.instructions ?? '', docs, trashed };
+	const repos = await listProjectRepos(db, actor, params.projectId);
+	return { instructions: p?.instructions ?? '', docs, trashed, repos, tokens: repoTokens() };
 };
 
 export const actions: Actions = {
@@ -36,5 +46,19 @@ export const actions: Actions = {
 		const f = await request.formData();
 		const r = await orFail(setDocumentProtection(getDb(), actor, { documentId: str(f, 'documentId'), isProtected: str(f, 'value') === '1' }));
 		return r.ok ? { ok: 'Védettség módosítva.' } : r.failure;
+	},
+	addRepo: async ({ locals, url, params, request }) => {
+		const actor = humanActor(locals, url);
+		const f = await request.formData();
+		const provider = str(f, 'provider') === 'gitlab' ? 'gitlab' : 'github';
+		const r = await orFail(addProjectRepo(getDb(), actor, { projectId: params.projectId, repo: str(f, 'repo'), provider }));
+		if (!r.ok) return r.failure;
+		return { ok: r.value.added ? `Hivatkozható: ${r.value.repo}` : `A(z) ${r.value.repo} már a listában van.` };
+	},
+	removeRepo: async ({ locals, url, params, request }) => {
+		const actor = humanActor(locals, url);
+		const f = await request.formData();
+		const r = await orFail(removeProjectRepo(getDb(), actor, { projectId: params.projectId, repoId: str(f, 'repoId') }));
+		return r.ok ? { ok: 'A repó kikerült a listából; a hivatkozott szakaszok megmaradnak, de nem frissülnek.' } : r.failure;
 	}
 };

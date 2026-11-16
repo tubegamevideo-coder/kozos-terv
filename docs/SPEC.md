@@ -1,6 +1,6 @@
 # Teréz – specifikáció
 
-Név: **Teréz** · Kódnév és repó: `kozos-terv` · Cím: `https://terv.nebulooo.com` · Utolsó frissítés: 2026-11-11
+Név: **Teréz** · Kódnév és repó: `kozos-terv` · Cím: `https://terv.nebulooo.com` · Utolsó frissítés: 2026-11-16
 
 > Forrás: a „Közös tervezőapp – terv és útmutató” Claude-dokumentum, a 2026-11-11-i döntésekkel
 > (TypeScript-stack Django helyett, Google-belépés, otthoni szerver Cloudflare Tunnellel).
@@ -27,7 +27,8 @@ Négy alapelv:
 3. **A fő terv védett, az ötletelés szabad.** A „fő terv” típusú dokumentumokba a Claude csak
    javaslatot tesz, amit ember fogad el; a jegyzetekbe, kutatásba és ötletekbe szabadon ír.
 4. **Kicsi és saját.** Egy TypeScript-projekt, Postgres, Docker Compose; nem függ külső
-   szolgáltatótól (a Google csak a belépéshez kell).
+   szolgáltatótól (a Google csak a belépéshez kell; a GitHub/GitLab csak a választható
+   repóhivatkozáshoz, 11. fejezet).
 
 ## 2. Hogyan működik
 
@@ -61,6 +62,7 @@ Se az MCP-réteg, se a felület nem ír közvetlenül az adatbázisba.
 | 8 | Név és domain | **Teréz** (a kódban és a repóban `kozos-terv`), `terv.nebulooo.com` |
 | 9 | Stack | TypeScript full-stack (lásd 8. fejezet), nem Django |
 | 10 | Első éles projekt | A pályázatfigyelő app tervezése |
+| 11 | Repóban élő dokumentáció? | Repóhivatkozású szakasz: a git-repó egy fájlja Terézben csak olvashatóan jelenik meg, a forrás a repó marad (11. fejezet) |
 
 Szándékosan kimarad az első változatból: élő karakterszintű közös szerkesztés, képfeltöltés,
 mobilapp, e-mail-értesítés, saját AI-hívás a szerverből.
@@ -87,6 +89,8 @@ A központi elem a **szakasz**, mert ott van a zár és a verzió.
 | `idea` + `idea_vote` | Rövid ötlet, szerző, címkék, szavazatok, állapot | `new`, `investigating`, `adopted`, `rejected` |
 | `event` | Minden változás: ki, mit, min, mikor, ember vagy Claude | „Mi változott, mióta itt voltam” |
 | `project_visit` | Utolsó látogatás felhasználónként és projektenként, csatornánként | Ebből jön a „változások óta” |
+| `project_repo` | A projektben hivatkozható repók: szolgáltató (`github`, `gitlab`), repó, ki vette fel | A munkatér tulajdonosa kezeli; törlés lomtárba |
+| `section_source` | Repóhivatkozású szakasz forrása: repó, fájl, ág, utolsó tartalom-azonosító (blob SHA), ellenőrzés és hiba ideje | Ha van, a szakasz csak olvasható (11. fejezet) |
 
 Minden revízión és eseményen ott van az **`actor_kind`** (`human` vagy `claude`). A Claude
 MCP-n keresztül érkezik, így a szerver tudja: a belépett felhasználó, a Claude-ján keresztül.
@@ -138,6 +142,8 @@ egyetlen hívással megmondja, hol tart a projekt, és mi változott a legutóbb
 | Kérdések | `add_question`, `update_question` | Új kérdés; állapot és döntés |
 | Ötletek | `add_idea`, `list_ideas`, `vote_idea` | Gyors ötletek, szavazás |
 | Napló | `log_decision` | Döntés a döntésnaplóba |
+| Repó | `link_repo_file` | Új, csak olvasható szakasz egy engedélyezett repó fájljából |
+| Repó | `refresh_section` | Repóhivatkozású szakasz frissítése most (nem vár a gyorsítótárra) |
 
 Irányelvek: a leírások tanítanak (mikor kell használni, mi előzze meg); a hibaüzenet segít
 (friss szöveg + diff, ki tartja a zárat); rövid válaszok (alapból vázlat); minden írás indoklást
@@ -210,3 +216,44 @@ Minden lépés végén egy kipróbálható kapu dönti el, hogy mehet-e a követ
    csatlakozó belép, és a hívások a saját felhasználóhoz kötődnek.
 4. **Webes felület:** irányítópult, dokumentum, javaslatok, előzmény, élő frissítés.
 5. **Import, meghívás, éles próba** a pályázatfigyelő app tervével.
+
+## 11. Repóból hivatkozott szakaszok
+
+A projektszintű tervezés Terézben zajlik, a konkrét rendszerterv viszont a fejlesztett alkalmazás
+repójában él (`docs/`), mert ott együtt változik a kóddal. A repóhivatkozású szakasz ezt a kettőt
+köti össze: a repó egy fájlja Terézben szakaszként jelenik meg, **csak olvashatóan**, és a forrás
+mindig a repó marad. Így aki nem nyitja meg a repót, és a Claude-ok is, látják a technikai tervet.
+
+```mermaid
+flowchart LR
+  R[(GitHub / GitLab\ndocs/architektura.md)] -- olvasás tokennel --> S[Teréz szerver]
+  S -- új revízió, ha változott --> T[Szakasz: csak olvasható]
+  T --> W[Felület] & M[Claude, MCP]
+```
+
+**Szabályok**
+
+- **Engedélyezett repók.** Egy projektben csak olyan repóra lehet hivatkozni, amelyet a munkatér
+  tulajdonosa a Beállításokban felvett (`project_repo`). Ettől nem tud egy projektből bárki
+  más, a szerver tokenjével olvasható privát repókat behúzni. Csak ember veheti fel vagy veheti ki.
+- **Hivatkozás.** Szerkesztő (ember vagy Claude) hozhat létre ilyen szakaszt: repó, fájl útvonala,
+  opcionálisan ág (alapból a repó alapértelmezett ága) és cím (alapból a fájl első `#` címsora vagy a
+  fájlnév). A Claude védett dokumentumba itt sem írhat közvetlenül.
+- **Csak olvasható.** Szerkesztés, csere, javaslat, zár és régi változat visszaállítása
+  `REPO_LINKED` hibát ad, benne a fájl webes címével. Lomtárba tehető (ezzel szűnik meg a
+  hivatkozás), és onnan visszahozható.
+- **Frissítés revízióként.** Ha a fájl tartalma (blob SHA) megváltozott, a szakasz új, `sync` fajtájú
+  revíziót kap, és `section.synced` esemény keletkezik. Ezért a keresés, az előzmény, a diff és a
+  „mi változott” is működik. A frissítés szerzője az, aki a hivatkozást létrehozta.
+- **Mikor frissül.** Olvasáskor magától, ha az utolsó ellenőrzés régebbi, mint
+  `REPO_SYNC_TTL_SECONDS` (alapból 300 mp): a `read_section` és a teljes `read_document` a válasz
+  előtt frissít; a dokumentumoldal a háttérben, és az új változatot az élő frissítés mutatja meg.
+  Kézzel bármikor: „Frissítés” gomb vagy `refresh_section`. Ha a repó nem érhető el, a szakasz a
+  legutóbbi tartalommal marad, és a hiba látszik mellette.
+- **Formátum.** A Markdown-fájl tartalma változatlanul jön át, csak az első `#` címsor lesz a
+  szakasz címe, az elején álló YAML front matter elmarad, és a relatív linkek a repó webes címére mutatnak. A `.mmd` fájl Mermaid-ábraként,
+  más szöveges fájl kódblokként jelenik meg. Legfeljebb 256 KB, bináris fájl nem lehet.
+
+**Beállítás a szerveren** (`.env`): `GITHUB_TOKEN` és/vagy `GITLAB_TOKEN` (csak olvasási jog a
+kiválasztott repókra; nyilvános repóhoz nem kell), `GITLAB_URL` (saját GitLabhoz, alapból
+`https://gitlab.com`), `REPO_SYNC_TTL_SECONDS`.

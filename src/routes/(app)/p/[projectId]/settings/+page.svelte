@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { FileText, ShieldCheck } from '@lucide/svelte';
+	import { FileText, FolderGit2, ShieldCheck } from '@lucide/svelte';
 	import type { PageProps } from './$types';
 	import { withToast } from '../../../../../lib/toast.svelte';
 	import { ago, kindLabel } from '../../../../../lib/ui';
@@ -63,6 +63,52 @@
 		</div>
 	</section>
 
+	<section class="block" id="repok">
+		<h2 class="section-title">Repók</h2>
+		<p class="muted small expl">
+			Ezekből a GitHub- és GitLab-repókból lehet szakaszt hivatkozni (például a rendszertervet a <code>docs/</code> mappából). A hivatkozott szakasz itt csak olvasható, a repó változásai magától átjönnek. Repót a munkatér tulajdonosa vehet fel.
+		</p>
+		{#if data.role === 'owner' && !data.tokens.github}
+			<p class="small note">A szerveren nincs GitHub-token (GITHUB_TOKEN): csak nyilvános GitHub-repók érhetők el, és óránként legfeljebb 60 lekérés.</p>
+		{/if}
+		{#if data.role === 'owner' && !data.tokens.gitlab && data.repos.some((r) => r.provider === 'gitlab')}
+			<p class="small note">A szerveren nincs GitLab-token (GITLAB_TOKEN): csak nyilvános GitLab-projektek érhetők el.</p>
+		{/if}
+		<div class="panel">
+			{#each data.repos as r (r.id)}
+				<div class="drow">
+					<FolderGit2 size={17} class="ic on" />
+					<span class="grow">{r.repo} <span class="faint small">{r.provider === 'github' ? 'GitHub' : 'GitLab'} · {r.addedBy} vette fel, {ago(r.createdAt)}</span></span>
+					{#if data.role === 'owner'}
+						<form
+							method="POST"
+							action="?/removeRepo"
+							use:enhance={withToast()}
+							onsubmit={(e) => {
+								if (!confirm(`Kiveszed a(z) ${r.repo} repót? A már hivatkozott szakaszok megmaradnak, de nem frissülnek tovább.`)) e.preventDefault();
+							}}
+						>
+							<input type="hidden" name="repoId" value={r.id} />
+							<button class="btn ghost sm">Kivétel</button>
+						</form>
+					{/if}
+				</div>
+			{:else}
+				<p class="drow muted small">Még nincs hivatkozható repó.</p>
+			{/each}
+			{#if data.role === 'owner'}
+				<form method="POST" action="?/addRepo" class="drow addrepo" use:enhance={withToast()}>
+					<select name="provider" aria-label="Szolgáltató">
+						<option value="github">GitHub</option>
+						<option value="gitlab">GitLab</option>
+					</select>
+					<input name="repo" required placeholder="tulajdonos/név, vagy a repó címe" aria-label="Repó" />
+					<button class="btn">Felvétel</button>
+				</form>
+			{/if}
+		</div>
+	</section>
+
 	<section class="block">
 		<h2 class="section-title">Lomtár</h2>
 		{#if data.trashed.length}
@@ -118,6 +164,23 @@
 	}
 	.drow :global(.ic.on) {
 		color: var(--teal);
+	}
+	p.drow {
+		margin: 0;
+	}
+	.addrepo select {
+		width: auto;
+	}
+	.addrepo input {
+		flex: 1;
+	}
+	.note {
+		margin: -4px 0 12px;
+		padding: 8px 12px;
+		border-radius: var(--r-sm);
+		background: var(--mark-wash);
+		color: var(--mark-ink);
+		max-width: 68ch;
 	}
 	.switch {
 		display: inline-flex;

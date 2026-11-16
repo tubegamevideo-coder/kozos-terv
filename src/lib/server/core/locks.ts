@@ -4,6 +4,7 @@ import { sectionLock, user } from '../db/schema';
 import { loadSection } from './access';
 import { CoreError } from './errors';
 import { recordEvent } from './events';
+import { assertNotRepoLinked } from './sources';
 import { clock, LOCK_DEFAULT_MINUTES, LOCK_MAX_MINUTES, type Actor } from './types';
 
 export async function getActiveLock(db: DbOrTx, sectionId: string) {
@@ -61,6 +62,8 @@ export async function lockSection(db: Db, actor: Actor, input: LockInput) {
 	return db.transaction(async (tx) => {
 		const ctx = await loadSection(tx, actor, input.sectionId, 'editor', { forUpdate: true });
 		if (ctx.section.deletedAt) throw new CoreError('IN_TRASH', 'A szakasz a lomtárban van.');
+		// Repóhivatkozású szakaszba úgysem lehet írni, ezért zárolni sincs értelme.
+		await assertNotRepoLinked(tx, ctx.section);
 		const existing = await assertNotLockedByOther(tx, actor, input.sectionId);
 		const now = clock.now();
 		const expiresAt = new Date(now.getTime() + minutes * 60_000);

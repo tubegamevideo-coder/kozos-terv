@@ -6,6 +6,7 @@ import { countOccurrences, unifiedDiff } from './diff';
 import { CoreError } from './errors';
 import { recordEvent } from './events';
 import { assertNotLockedByOther, getActiveLock, lockDetails } from './locks';
+import { assertNotRepoLinked, getSectionSource, sourceView } from './sources';
 import { clock, type Actor } from './types';
 
 export type SectionCtx = Awaited<ReturnType<typeof loadSection>>;
@@ -124,10 +125,20 @@ export async function writeRevision(tx: Tx, ctx: SectionCtx, actor: Actor, w: Wr
 	return { revision: next, conflictedProposalIds: conflicted.map((p) => p.id) };
 }
 
-/** A közvetlen írások közös előszobája: zárolás, lomtár, védettség, zár, revízió. */
-async function prepareDirectWrite(tx: Tx, actor: Actor, sectionId: string, baseRevision: number) {
+/**
+ * A közvetlen írások közös előszobája: zárolás, lomtár, repóhivatkozás, védettség, zár, revízió.
+ * A repóhivatkozású szakasz csak olvasható; lomtárba tenni viszont lehet (`allowRepoLinked`).
+ */
+async function prepareDirectWrite(
+	tx: Tx,
+	actor: Actor,
+	sectionId: string,
+	baseRevision: number,
+	opts: { allowRepoLinked?: boolean } = {}
+) {
 	const ctx = await loadSection(tx, actor, sectionId, 'editor', { forUpdate: true });
 	if (ctx.section.deletedAt) throw new CoreError('IN_TRASH', 'A szakasz a lomtárban van.', { sectionId });
+	if (!opts.allowRepoLinked) await assertNotRepoLinked(tx, ctx.section);
 	assertDirectWriteAllowed(actor, ctx.document);
 	await assertNotLockedByOther(tx, actor, sectionId);
 	await assertFreshRevision(tx, ctx, baseRevision);
@@ -209,7 +220,7 @@ export async function trashSection(
 ) {
 	const reason = requireReason(input.reason);
 	return db.transaction(async (tx) => {
-		const ctx = await prepareDirectWrite(tx, actor, input.sectionId, input.baseRevision);
+		const ctx = await prepareDirectWrite(tx, actor, input.sectionId, input.baseRevision, { allowRepoLinked: true });
 		const res = await writeRevision(tx, ctx, actor, {
 			title: ctx.section.title,
 			content: ctx.section.content,
@@ -238,6 +249,8 @@ export async function restoreRevision(
 	const reason = requireReason(input.reason);
 	return db.transaction(async (tx) => {
 		const ctx = await loadSection(tx, actor, input.sectionId, 'editor', { forUpdate: true });
+		// Repóhivatkozású szakaszt csak a lomtárból lehet visszahozni; régi változatra nem állítható.
+		if (!ctx.section.deletedAt) await assertNotRepoLinked(tx, ctx.section);
 		assertDirectWriteAllowed(actor, ctx.document);
 		await assertNotLockedByOther(tx, actor, input.sectionId);
 		await assertFreshRevision(tx, ctx, input.baseRevision);
@@ -274,8 +287,18 @@ export interface CreateSectionInput {
 	reason: string;
 }
 
-/** Új szakaszt hoz létre; a dokumentum sorát zárolja, hogy két párhuzamos beszúrás ne ütközzön. */
-export async function createSectionTx(tx: Tx, actor: Actor, input: CreateSectionInput, author?: Actor, proposalId?: string) {
+/**
+ * Új szakaszt hoz létre; a dokumentum sorát zárolja, hogy két párhuzamos beszúrás ne ütközzön.
+ * Az `event` az eseménynapló összefoglalóját és adatait egészíti ki (pl. repóhivatkozásnál).
+ */
+export async function createSectionTx(
+	tx: Tx,
+	actor: Actor,
+	input: CreateSectionInput,
+	author?: Actor,
+	proposalId?: string,
+	event: { summary?: string; data?: Record<string, unknown> } = {}
+) {
 	const ctx = await loadDocument(tx, actor, input.documentId, 'editor');
 	await tx.select({ id: document.id }).from(document).where(eq(document.id, input.documentId)).for('update');
 	const position = await positionAfter(tx, input.documentId, input.afterSectionId ?? null);
@@ -307,8 +330,8 @@ export async function createSectionTx(tx: Tx, actor: Actor, input: CreateSection
 		type: 'section.created',
 		targetType: 'section',
 		targetId: s.id,
-		summary: `Új szakasz: „${s.title}” (${ctx.document.title})`,
-		data: { documentId: input.documentId, revision: 1 }
+		summary: event.summary ?? `Új szakasz: „${s.title}” (${ctx.document.title})`,
+		data: { documentId: input.documentId, revision: 1, ...event.data }
 	});
 	return { sectionId: s.id, revision: 1, position };
 }
@@ -349,6 +372,7 @@ const conflictData = (res: { conflictedProposalIds: string[] }) =>
 export async function readSection(db: DbOrTx, actor: Actor, sectionId: string) {
 	const ctx = await loadSection(db, actor, sectionId, 'viewer');
 	const lock = await getActiveLock(db, sectionId);
+	const source = await getSectionSource(db, sectionId);
 	const openProposals = await db
 		.select({
 			id: proposal.id,
@@ -372,7 +396,9 @@ export async function readSection(db: DbOrTx, actor: Actor, sectionId: string) {
 		inTrash: !!ctx.section.deletedAt,
 		updatedAt: ctx.section.updatedAt,
 		lock: lock ? lockDetails(lock) : null,
-		openProposals
+		openProposals,
+		/** Ha a szakasz a repóból jön: honnan; ilyenkor csak olvasható. */
+		source: source ? sourceView(source) : null
 	};
 }
 

@@ -9,7 +9,18 @@
 	let { data }: PageProps = $props();
 	const s = $derived(data.section);
 	const what = (k: string) =>
-		({ create: 'létrehozta', edit: 'módosította', replace: 'átírta', restore: 'visszaállította', proposal: 'javaslata elfogadva', trash: 'lomtárba tette', untrash: 'visszahozta' })[k] ?? k;
+		({
+			create: 'létrehozta',
+			edit: 'módosította',
+			replace: 'átírta',
+			restore: 'visszaállította',
+			proposal: 'javaslata elfogadva',
+			trash: 'lomtárba tette',
+			untrash: 'visszahozta',
+			sync: 'hivatkozása frissült a repóból'
+		})[k] ?? k;
+	// Repóból hivatkozott szakaszt csak a lomtárból lehet visszahozni; a tartalma a repót követi.
+	const canRestore = $derived(data.role !== 'viewer' && (!s.source || s.inTrash));
 </script>
 
 <svelte:head><title>Előzmény: {s.title}</title></svelte:head>
@@ -17,7 +28,14 @@
 <div class="page">
 	<a class="back small" href={`/p/${data.project.id}/d/${s.documentId}#s-${s.id}`}><ArrowLeft size={14} /> {s.documentTitle}</a>
 	<h1 class="page-title">{s.title}</h1>
-	<p class="muted lead">A szakasz minden változata megmarad. Válassz ki egyet, hogy lásd, mi változott benne, vagy állítsd vissza – a visszaállítás is új változatként kerül be.{#if s.inTrash} <span class="tag danger">Lomtárban</span>{/if}</p>
+	<p class="muted lead">
+		{#if s.source}
+			A szakasz a repóból jön (<a href={s.source.webUrl} target="_blank" rel="noopener noreferrer">{s.source.repo}/{s.source.path}</a>): minden változata megmarad, és itt összehasonlíthatod őket. Visszaállítani a repóban lehet, mert a tartalom mindig a repót követi.
+		{:else}
+			A szakasz minden változata megmarad. Válassz ki egyet, hogy lásd, mi változott benne, vagy állítsd vissza – a visszaállítás is új változatként kerül be.
+		{/if}
+		{#if s.inTrash} <span class="tag danger">Lomtárban</span>{/if}
+	</p>
 
 	<div class="layout">
 		<ol class="timeline" reversed>
@@ -32,7 +50,7 @@
 							<span class="faint tiny">{fmt(r.createdAt)}</span>
 						</span>
 					</a>
-					{#if r.revision !== s.revision && data.role !== 'viewer'}
+					{#if r.revision !== s.revision && canRestore}
 						<form method="POST" action="?/restore" use:enhance={withToast()} onsubmit={(e) => { if (!confirm(`Visszaállítod a(z) ${r.revision}. változatot?`)) e.preventDefault(); }}>
 							<input type="hidden" name="toRevision" value={r.revision} /><input type="hidden" name="baseRevision" value={s.revision} />
 							<button class="btn ghost sm" title="Visszaállítás erre a változatra"><RotateCcw size={14} /><span class="sr-only">Visszaállítás</span></button>

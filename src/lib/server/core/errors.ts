@@ -10,7 +10,13 @@ export type CoreErrorCode =
 	| 'IN_TRASH'
 	| 'PROPOSAL_NOT_OPEN'
 	| 'PROPOSAL_CONFLICT'
-	| 'HUMAN_ONLY';
+	| 'HUMAN_ONLY'
+	/** A szakasz a repóból jön, itt csak olvasható. */
+	| 'REPO_LINKED'
+	/** A repó nincs felvéve a projekt hivatkozható repói közé. */
+	| 'REPO_NOT_ALLOWED'
+	/** A repóból nem sikerült beolvasni a fájlt. */
+	| 'REPO_FETCH_FAILED';
 
 /**
  * A közös mag egyetlen hibatípusa. A `code` stabil (az MCP-réteg és a felület erre ágazik el),

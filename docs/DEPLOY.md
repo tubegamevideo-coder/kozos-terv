@@ -77,6 +77,30 @@ claude mcp add --scope user --transport http terez https://terv.nebulooo.com/mcp
 
 A kapcsolódott klienseket a főoldalon látod, és bármikor visszavonhatod.
 
+## 5. Repóból hivatkozott szakaszok (nem kötelező)
+
+Egy szakasz mutathat egy GitHub- vagy GitLab-fájlt is (például a rendszertervet egy app
+`docs/` mappájából): itt csak olvasható, a repó változásai magától átjönnek (SPEC 11. fejezet).
+Nyilvános repóhoz nem kell semmi; privát repóhoz csak olvasási jogú token kell a `.env`-be:
+
+- **GitHub:** Settings → Developer settings → *Fine-grained tokens* → Generate new token.
+  Repository access: csak a hivatkozott repók; Permissions → Repository → **Contents: Read-only**.
+  Szervezeti repónál a szervezetnek jóvá kell hagynia a tokent.
+  ```ini
+  GITHUB_TOKEN=github_pat_…
+  ```
+- **GitLab:** a projekt (vagy csoport) *Settings → Access tokens*: szerepkör Reporter,
+  jogosultság **read_api**. Saját GitLab-szervernél a `GITLAB_URL`-t is add meg.
+  ```ini
+  GITLAB_TOKEN=glpat-…
+  # GITLAB_URL=https://gitlab.example.com
+  ```
+
+Utána `docker compose up -d`. A projekt **Beállítások → Repók** részén a munkatér tulajdonosa
+veszi fel, mely repókból lehet hivatkozni; a tokent ugyanott jelzi, ha hiányzik. A token a
+szerveré: aki a projektben van, a felvett repók fájljait látja, akkor is, ha a GitHubon nincs
+hozzáférése.
+
 ## Frissítés
 
 ```bash
@@ -97,5 +121,7 @@ docker compose exec -T db pg_dump -U postgres kozos_terv | gzip > kozos-terv-$(d
 - Cloudflare 502/1033: a `tunnel` konténer nem fut, vagy a cél nem `http://app:3000`.
 - „redirect_uri_mismatch” a Google-nél: a callback-cím nincs felvéve a Google-kliensnél.
 - „nincs meghívója”: a Gmail-cím nem egyezik a taghoz tartozó címmel → meghívás a főoldalon.
+- Repós szakasz „nem található, vagy a szerver tokenje nem fér hozzá”: rossz útvonal vagy ág, vagy
+  a token nem látja a repót (fine-grained tokennél a repót külön ki kell jelölni).
 - Helyi próba tunnel nélkül: `COMPOSE_PROFILES=`, `ORIGIN=http://localhost:3100`, és
   `http://localhost:3100` a szerveren (a Google-belépés ehhez a localhost callback-címet használja).

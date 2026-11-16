@@ -50,10 +50,17 @@ export function sectionBlock(s: {
 	content?: string;
 	lock?: { heldBy: string; expiresAt: string; purpose?: string } | null;
 	openProposals?: number | unknown[];
+	source?: { repo: string; path: string; ref?: string | null; webUrl: string; blobSha: string; lastError?: string | null } | null;
 }) {
 	const meta = [`id: ${s.id}`, `revision: ${s.revision}`];
+	if (s.source) {
+		const where = `${s.source.repo}/${s.source.path}${s.source.ref ? ` @ ${s.source.ref}` : ''}`;
+		meta.push(`REPÓBÓL: ${where} (${s.source.blobSha}), csak olvasható – a repóban szerkeszd: ${s.source.webUrl}`);
+		if (s.source.lastError) meta.push(`a legutóbbi frissítés nem sikerült: ${s.source.lastError}`);
+	}
 	if (s.lock) meta.push(`ZÁROLVA: ${s.lock.heldBy}, ${s.lock.expiresAt}-ig${s.lock.purpose ? ` (${s.lock.purpose})` : ''}`);
 	const n = Array.isArray(s.openProposals) ? s.openProposals.length : s.openProposals;
 	if (n) meta.push(`nyitott javaslat: ${n}`);
-	return `## ${s.title}\n<!-- ${meta.join(' · ')} -->\n\n${s.content ?? ''}`.trimEnd();
+	// A megjegyzés nem zárulhat le idő előtt (pl. egy furcsa fájlnév vagy hibaüzenet miatt).
+	return `## ${s.title}\n<!-- ${meta.join(' · ').replaceAll('-->', '-- >')} -->\n\n${s.content ?? ''}`.trimEnd();
 }

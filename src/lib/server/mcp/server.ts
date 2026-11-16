@@ -17,6 +17,7 @@ Munkamenet:
 6. Védett dokumentumba (isProtected: true, általában a „fő terv”) nem írhatsz közvetlenül: propose_change-dzsel javasolj, egy ember fogadja el.
 7. Minden íráshoz adj rövid, emberi indoklást (reason): a többiek ebből látják, miért változott valami.
 8. Ötleteket add_idea-val, nyitott kérdéseket add_question-nel, meghozott döntéseket log_decision-nel rögzíts; ne zsúfold őket a dokumentumokba.
+9. A „REPÓBÓL” jelölésű szakaszok (az összefoglalóban fromRepo) egy GitHub- vagy GitLab-fájlt mutatnak, és csak olvashatók (REPO_LINKED): a változtatás a repóba való, itt add_comment-tel jelezd. Repófájlt link_repo_file-lal hozhatsz be, ha a felhasználó kéri; ha épp most módosította a fájlt, refresh_section-nel azonnal frissítheted.
 A szakaszok Markdownt tartalmaznak (táblázat, Mermaid-ábra is lehet). Az azonosítókat (id) ne mutasd a felhasználónak, ha nem kéri.`;
 
 const id = (what: string) => z.string().min(1).describe(`${what} azonosítója`);
@@ -36,7 +37,7 @@ const baseRevision = z
  */
 export function buildMcpServer(db: Db, actor: Actor) {
 	const server = new McpServer(
-		{ name: 'terez', title: 'Teréz', version: '0.3.0' },
+		{ name: 'terez', title: 'Teréz', version: '0.4.0' },
 		{ instructions: SERVER_INSTRUCTIONS, capabilities: { tools: {}, prompts: {} } }
 	);
 	const ro = { readOnlyHint: true, openWorldHint: false } as const;
@@ -93,7 +94,7 @@ export function buildMcpServer(db: Db, actor: Actor) {
 		{
 			title: 'Projekt-összefoglaló',
 			description:
-				'Minden beszélgetés elején hívd. Egy hívásban: a projektutasítás (tartsd be!), a dokumentumok és szakaszok tartalomjegyzéke revíziószámokkal, nyitott kérdések, aktív zárak, nyitott javaslatok és a többiek változásai a felhasználó legutóbbi (Claude-os) látogatása óta. A hívás a változásokat látottnak jelöli, így a következő összefoglaló csak az újakat mutatja.',
+				'Minden beszélgetés elején hívd. Egy hívásban: a projektutasítás (tartsd be!), a dokumentumok és szakaszok tartalomjegyzéke revíziószámokkal, nyitott kérdések, aktív zárak, nyitott javaslatok és a többiek változásai a felhasználó legutóbbi (Claude-os) látogatása óta. A hívás a változásokat látottnak jelöli, így a következő összefoglaló csak az újakat mutatja. A repóból hivatkozott (csak olvasható) szakaszoknál fromRepo áll; linkableRepos: a link_repo_file-lal hivatkozható repók.',
 			inputSchema: {
 				projectId: id('A projekt'),
 				markSeen: z.boolean().optional().describe('Alapból true. False esetén nem jelöli látottnak a változásokat.')
@@ -161,6 +162,10 @@ export function buildMcpServer(db: Db, actor: Actor) {
 		},
 		async (a) => {
 			try {
+				// A repóból hivatkozott szakaszok tartalma frissüljön, ha régi (vázlatnál nem kell).
+				if (a.full) {
+					await core.refreshStaleRepoSections(db, actor, a.sectionIds?.length ? { sectionIds: a.sectionIds } : { documentId: a.documentId });
+				}
 				const d = await core.readDocument(db, actor, a);
 				const head = toJson({
 					id: d.id,
@@ -192,6 +197,7 @@ export function buildMcpServer(db: Db, actor: Actor) {
 		},
 		async (a) => {
 			try {
+				await core.refreshStaleRepoSections(db, actor, { sectionIds: [a.sectionId] });
 				const s = await core.readSection(db, actor, a.sectionId);
 				const meta = {
 					document: { id: s.documentId, title: s.documentTitle, isProtected: s.isProtected },
@@ -343,6 +349,41 @@ export function buildMcpServer(db: Db, actor: Actor) {
 			annotations: rw
 		},
 		async (a) => run(() => core.rejectProposal(db, actor, a))
+	);
+
+	// ------------------------------------------------------------ repóból hivatkozott szakaszok
+
+	server.registerTool(
+		'link_repo_file',
+		{
+			title: 'Szakasz a repóból',
+			description:
+				'Új, csak olvasható szakasz egy GitHub- vagy GitLab-repó fájljából (pl. docs/architektura.md), ha a felhasználó kéri. A szakasz a repóban élő fájlt mutatja: a repóban kell szerkeszteni, és frissítéskor új revízióként jön át. Csak a projekt hivatkozható repóiból lehet (get_project_brief: linkableRepos; újat a munkatér tulajdonosa vehet fel a Beállításokban). A repo lehet „tulajdonos/név” vagy a fájl webes címe (ilyenkor a path és a ref elhagyható). Markdownnál az első címsor lesz a cím, más szöveges fájl kódblokkba kerül. Védett dokumentumba nem lehet.',
+			inputSchema: {
+				documentId: id('A dokumentum'),
+				repo: z.string().min(1).describe('„tulajdonos/név”, vagy a repó, illetve a fájl webes címe'),
+				path: z.string().optional().describe('A fájl útvonala a repóban, pl. docs/architektura.md'),
+				ref: z.string().optional().describe('Ág, címke vagy commit (alapból a repó alapértelmezett ága)'),
+				provider: z.enum(['github', 'gitlab']).optional().describe('Alapból github; webes címből magától kiderül'),
+				title: z.string().optional().describe('Saját cím (alapból a fájl első címsora vagy a fájl neve)'),
+				afterSectionId: z.string().optional().describe('Ez után a szakasz után (alapból a dokumentum végére)'),
+				reason
+			},
+			annotations: { ...rw, openWorldHint: true }
+		},
+		async (a) => run(() => core.linkRepoFile(db, actor, a))
+	);
+
+	server.registerTool(
+		'refresh_section',
+		{
+			title: 'Repós szakasz frissítése',
+			description:
+				'Egy repóból hivatkozott szakaszt azonnal frissít a fájl mostani állapotából. Olvasáskor magától is frissül, ha a legutóbbi ellenőrzés régebbi néhány percnél; ezt akkor hívd, ha a felhasználó épp most módosította a fájlt. Ha a fájl változott, új revízió keletkezik (changed: true).',
+			inputSchema: { sectionId: id('A szakasz') },
+			annotations: { ...rw, idempotentHint: true, openWorldHint: true }
+		},
+		async (a) => run(() => core.refreshRepoSection(db, actor, { sectionId: a.sectionId }))
 	);
 
 	// ------------------------------------------------------------ zár

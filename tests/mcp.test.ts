@@ -30,13 +30,13 @@ async function connect(db: Db, userId: string) {
 
 const EXPECTED_TOOLS = [
 	'add_comment', 'add_idea', 'add_question', 'create_document', 'create_project', 'create_section', 'edit_section',
-	'get_changes', 'get_project_brief', 'list_comments', 'list_ideas', 'list_projects', 'list_questions',
-	'lock_section', 'log_decision', 'propose_change', 'read_document', 'read_section', 'release_section',
+	'get_changes', 'get_project_brief', 'link_repo_file', 'list_comments', 'list_ideas', 'list_projects', 'list_questions',
+	'lock_section', 'log_decision', 'propose_change', 'read_document', 'read_section', 'refresh_section', 'release_section',
 	'replace_section', 'search', 'trash_section', 'update_question', 'vote_idea', 'withdraw_proposal'
 ];
 
 describe('MCP-eszközök', () => {
-	it('mind a 25 eszköz és a 3 prompt elérhető, leírással és bemeneti sémával', async () => {
+	it('mind a 27 eszköz és a 3 prompt elérhető, leírással és bemeneti sémával', async () => {
 		const s = await seed(db);
 		const { client } = await connect(db, s.kollega.id);
 		const { tools } = await client.listTools();
