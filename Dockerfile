@@ -9,8 +9,12 @@ RUN npm run build && npm prune --omit=dev
 # --- futtatás ---
 FROM node:22-alpine
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0
-RUN addgroup -S app && adduser -S app -G app
+# git + ssh: a repóból hivatkozott szakaszok SSH-kulccsal (deploy key) is olvashatók.
+# /data: a kulcsok és a git-gyorsítótár helye (kötet a docker-compose.yml-ben).
+ENV NODE_ENV=production PORT=3000 HOST=0.0.0.0 REPO_STATE_DIR=/data
+RUN apk add --no-cache git openssh-client \
+	&& addgroup -S app && adduser -S app -G app \
+	&& mkdir -p /data && chown app:app /data && chmod 700 /data
 COPY --from=build --chown=app:app /app/package.json ./
 COPY --from=build --chown=app:app /app/node_modules ./node_modules
 COPY --from=build --chown=app:app /app/build ./build

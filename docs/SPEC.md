@@ -89,7 +89,7 @@ A központi elem a **szakasz**, mert ott van a zár és a verzió.
 | `idea` + `idea_vote` | Rövid ötlet, szerző, címkék, szavazatok, állapot | `new`, `investigating`, `adopted`, `rejected` |
 | `event` | Minden változás: ki, mit, min, mikor, ember vagy Claude | „Mi változott, mióta itt voltam” |
 | `project_visit` | Utolsó látogatás felhasználónként és projektenként, csatornánként | Ebből jön a „változások óta” |
-| `project_repo` | A projektben hivatkozható repók: szolgáltató (`github`, `gitlab`), repó, ki vette fel | A munkatér tulajdonosa kezeli; törlés lomtárba |
+| `project_repo` | A projektben hivatkozható repók: szolgáltató (`github`, `gitlab`), repó, ki vette fel; SSH-kulcs nyilvános fele, ujjlenyomata, ellenőrzés ideje | A munkatér tulajdonosa kezeli; törlés lomtárba; a privát kulcs nem itt van |
 | `section_source` | Repóhivatkozású szakasz forrása: repó, fájl, ág, utolsó tartalom-azonosító (blob SHA), ellenőrzés és hiba ideje | Ha van, a szakasz csak olvasható (11. fejezet) |
 
 Minden revízión és eseményen ott van az **`actor_kind`** (`human` vagy `claude`). A Claude
@@ -236,6 +236,15 @@ flowchart LR
 - **Engedélyezett repók.** Egy projektben csak olyan repóra lehet hivatkozni, amelyet a munkatér
   tulajdonosa a Beállításokban felvett (`project_repo`). Ettől nem tud egy projektből bárki
   más, a szerver tokenjével olvasható privát repókat behúzni. Csak ember veheti fel vagy veheti ki.
+- **Hozzáférés.** Nyilvános repóhoz nem kell semmi. Privát repóhoz a tulajdonos a Beállításokban
+  repónként SSH-kulcsot generál (ed25519): a nyilvános kulcsot a repó *Deploy keys* részén kell
+  felvenni, írási jog nélkül, és az „Ellenőrzés” gomb mutatja, hogy működik. Ha a repónak van
+  kulcsa, Teréz git-tel, SSH-n olvas (részleges klón: csak a szükséges fájl jön le); ha nincs, a
+  szolgáltató API-ján, a szerver tokenjével, ha van. A privát kulcs fájlban van a szerver
+  adatmappájában (`REPO_STATE_DIR`, Dockerben a `/data` kötet), sosem az adatbázisban, és sosem
+  jelenik meg. Kulcscserénél, a kulcs vagy a repó törlésekor a kulcsfájl ténylegesen törlődik
+  (titkot nem tartunk meg; ez kivétel a „semmit nem törlünk” szabály alól). A github.com és a
+  gitlab.com gépkulcsa rögzített; saját GitLab-szervernél az első kapcsolatkor jegyezzük meg.
 - **Hivatkozás.** Szerkesztő (ember vagy Claude) hozhat létre ilyen szakaszt: repó, fájl útvonala,
   opcionálisan ág (alapból a repó alapértelmezett ága) és cím (alapból a fájl első `#` címsora vagy a
   fájlnév). A Claude védett dokumentumba itt sem írhat közvetlenül.
@@ -254,6 +263,7 @@ flowchart LR
   szakasz címe, az elején álló YAML front matter elmarad, és a relatív linkek a repó webes címére mutatnak. A `.mmd` fájl Mermaid-ábraként,
   más szöveges fájl kódblokként jelenik meg. Legfeljebb 256 KB, bináris fájl nem lehet.
 
-**Beállítás a szerveren** (`.env`): `GITHUB_TOKEN` és/vagy `GITLAB_TOKEN` (csak olvasási jog a
-kiválasztott repókra; nyilvános repóhoz nem kell), `GITLAB_URL` (saját GitLabhoz, alapból
-`https://gitlab.com`), `REPO_SYNC_TTL_SECONDS`.
+**Beállítás a szerveren** (`.env`, mind elhagyható): `GITHUB_TOKEN` és/vagy `GITLAB_TOKEN` (csak
+olvasási jog a kiválasztott repókra; SSH-kulcs mellett nem kell), `GITLAB_URL` (saját GitLabhoz,
+alapból `https://gitlab.com`), `GITLAB_SSH_HOST` (ha a GitLab SSH-ja más gépen vagy porton fut,
+pl. `git.example.com:2222`), `REPO_SYNC_TTL_SECONDS`, `REPO_STATE_DIR`.

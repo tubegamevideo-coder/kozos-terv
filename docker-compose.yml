@@ -25,6 +25,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # A repók SSH-kulcsai és a git-gyorsítótár (REPO_STATE_DIR=/data); újraépítéskor is megmaradnak.
+    volumes:
+      - app-data:/data
     # Helyi elérés (vagy Tailscale); a nyilvános cím a Cloudflare Tunnelen át jön.
     ports:
       - '${APP_BIND:-127.0.0.1}:${APP_PORT:-3100}:3000'
@@ -44,3 +47,4 @@ services:
 
 volumes:
   db-data:
+  app-data:

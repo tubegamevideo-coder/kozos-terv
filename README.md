@@ -6,7 +6,8 @@ keresztül, úgy, hogy a Claude-ok nem írják felül egymás munkáját. Specif
 **Állapot:** 4. lépés kész – webes felület (dokumentumok Markdown/Mermaid-del, szerkesztés,
 javaslatok elfogadása, előzmény, kérdések, ötletek, élő frissítés), Google-belépés, saját OAuth 2.1
 szerver a Claude-oknak, nyilvános cím Cloudflare Tunnelen; MCP-szerver 27 eszközzel és 3 prompttal.
-Új: repóból hivatkozott, csak olvasható szakaszok (GitHub/GitLab-fájl, magától frissül; SPEC 11. fejezet).
+Új: repóból hivatkozott, csak olvasható szakaszok (GitHub/GitLab-fájl, magától frissül; SPEC 11. fejezet);
+privát repóhoz Teréz repónként SSH-kulcsot (deploy key) generál, token nem kell.
 Telepítés az otthoni szerverre: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Fejlesztés
@@ -45,3 +46,4 @@ npm run dev
 - **Eseménynapló:** minden írás eseményt ír; `getChangesSinceLastVisit` a „mi változott, mióta itt voltam”.
 - **Repóhivatkozás:** `linkRepoFile` – csak olvasható szakasz egy felvett repó fájljából; a változás
   `sync` revízióként jön át (`refreshRepoSection`, olvasáskor magától), írásra `REPO_LINKED`.
+  Privát repóhoz `generateRepoKey` (deploy key, SSH-n olvas) és `checkRepoAccess`.

@@ -81,7 +81,20 @@ A kapcsolódott klienseket a főoldalon látod, és bármikor visszavonhatod.
 
 Egy szakasz mutathat egy GitHub- vagy GitLab-fájlt is (például a rendszertervet egy app
 `docs/` mappájából): itt csak olvasható, a repó változásai magától átjönnek (SPEC 11. fejezet).
-Nyilvános repóhoz nem kell semmi; privát repóhoz csak olvasási jogú token kell a `.env`-be:
+Nyilvános repóhoz nem kell semmi. Privát repóhoz a legegyszerűbb az **SSH-kulcs** (deploy key),
+ehhez a szerveren nem kell beállítani semmit:
+
+1. A projekt **Beállítások → Repók** részén vedd fel a repót, majd **SSH-kulcs generálása**.
+2. Másold ki a nyilvános kulcsot, és add hozzá a repóhoz: GitHubon *Settings → Deploy keys →
+   Add deploy key*, GitLabon *Settings → Repository → Deploy keys*. Az írási jogot hagyd kikapcsolva.
+3. Teréz-ben **Ellenőrzés**. Ha „rendben”, a repó fájljai hivatkozhatók.
+
+A privát kulcs az `app-data` Docker-kötetben van (`/data`), újraépítéskor is megmarad. Ha a kötet
+elveszik (például új szerverre költözéskor), a Beállításokban generálj új kulcsot. Saját
+GitLab-szervernél, ha az SSH más gépen vagy porton fut: `GITLAB_SSH_HOST=git.example.com:2222`.
+
+Kulcs helyett **token** is használható (az API-n olvas; ilyenkor minden felvett repóhoz ugyanaz a
+token jár). Csak olvasási jogú token kell a `.env`-be:
 
 - **GitHub:** Settings → Developer settings → *Fine-grained tokens* → Generate new token.
   Repository access: csak a hivatkozott repók; Permissions → Repository → **Contents: Read-only**.
@@ -97,9 +110,9 @@ Nyilvános repóhoz nem kell semmi; privát repóhoz csak olvasási jogú token 
   ```
 
 Utána `docker compose up -d`. A projekt **Beállítások → Repók** részén a munkatér tulajdonosa
-veszi fel, mely repókból lehet hivatkozni; a tokent ugyanott jelzi, ha hiányzik. A token a
-szerveré: aki a projektben van, a felvett repók fájljait látja, akkor is, ha a GitHubon nincs
-hozzáférése.
+veszi fel, mely repókból lehet hivatkozni; ugyanott látszik, melyik repót mivel olvassa (kulccsal,
+tokennel vagy nyilvánosan). A kulcs és a token is a szerveré: aki a projektben van, a felvett
+repók fájljait látja, akkor is, ha a GitHubon nincs hozzáférése.
 
 ## Frissítés
 
@@ -123,5 +136,7 @@ docker compose exec -T db pg_dump -U postgres kozos_terv | gzip > kozos-terv-$(d
 - „nincs meghívója”: a Gmail-cím nem egyezik a taghoz tartozó címmel → meghívás a főoldalon.
 - Repós szakasz „nem található, vagy a szerver tokenje nem fér hozzá”: rossz útvonal vagy ág, vagy
   a token nem látja a repót (fine-grained tokennél a repót külön ki kell jelölni).
+- „A repó nem fogadta el Teréz SSH-kulcsát”: a nyilvános kulcs nincs a repó Deploy keys részén
+  (vagy egy másik repóhoz adtad; GitHubon egy deploy key csak egy repóhoz tartozhat).
 - Helyi próba tunnel nélkül: `COMPOSE_PROFILES=`, `ORIGIN=http://localhost:3100`, és
   `http://localhost:3100` a szerveren (a Google-belépés ehhez a localhost callback-címet használja).

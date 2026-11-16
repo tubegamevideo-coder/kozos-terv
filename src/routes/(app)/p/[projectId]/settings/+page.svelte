@@ -1,11 +1,22 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { FileText, FolderGit2, ShieldCheck } from '@lucide/svelte';
+	import { Copy, FileText, FolderGit2, KeyRound, ShieldCheck } from '@lucide/svelte';
 	import type { PageProps } from './$types';
-	import { withToast } from '../../../../../lib/toast.svelte';
+	import { toast, withToast } from '../../../../../lib/toast.svelte';
 	import { ago, kindLabel } from '../../../../../lib/ui';
 	let { data }: PageProps = $props();
 	const base = $derived(`/p/${data.project.id}`);
+	const ask = (text: string) => (e: SubmitEvent) => {
+		if (!confirm(text)) e.preventDefault();
+	};
+	async function copy(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			toast('Kimásolva.');
+		} catch {
+			toast('Nem sikerült a vágólapra másolni; jelöld ki, és másold kézzel.', 'error');
+		}
+	}
 </script>
 
 <svelte:head><title>Beállítások – {data.project.name}</title></svelte:head>
@@ -66,31 +77,74 @@
 	<section class="block" id="repok">
 		<h2 class="section-title">Repók</h2>
 		<p class="muted small expl">
-			Ezekből a GitHub- és GitLab-repókból lehet szakaszt hivatkozni (például a rendszertervet a <code>docs/</code> mappából). A hivatkozott szakasz itt csak olvasható, a repó változásai magától átjönnek. Repót a munkatér tulajdonosa vehet fel.
+			Ezekből a GitHub- és GitLab-repókból lehet szakaszt hivatkozni (például a rendszertervet a <code>docs/</code> mappából). A hivatkozott szakasz itt csak olvasható, a repó változásai magától átjönnek. Privát repóhoz generálj SSH-kulcsot, és add hozzá a repóhoz Deploy keyként. Repót és kulcsot a munkatér tulajdonosa kezel.
 		</p>
-		{#if data.role === 'owner' && !data.tokens.github}
-			<p class="small note">A szerveren nincs GitHub-token (GITHUB_TOKEN): csak nyilvános GitHub-repók érhetők el, és óránként legfeljebb 60 lekérés.</p>
-		{/if}
-		{#if data.role === 'owner' && !data.tokens.gitlab && data.repos.some((r) => r.provider === 'gitlab')}
-			<p class="small note">A szerveren nincs GitLab-token (GITLAB_TOKEN): csak nyilvános GitLab-projektek érhetők el.</p>
-		{/if}
 		<div class="panel">
 			{#each data.repos as r (r.id)}
-				<div class="drow">
-					<FolderGit2 size={17} class="ic on" />
-					<span class="grow">{r.repo} <span class="faint small">{r.provider === 'github' ? 'GitHub' : 'GitLab'} · {r.addedBy} vette fel, {ago(r.createdAt)}</span></span>
-					{#if data.role === 'owner'}
-						<form
-							method="POST"
-							action="?/removeRepo"
-							use:enhance={withToast()}
-							onsubmit={(e) => {
-								if (!confirm(`Kiveszed a(z) ${r.repo} repót? A már hivatkozott szakaszok megmaradnak, de nem frissülnek tovább.`)) e.preventDefault();
-							}}
-						>
-							<input type="hidden" name="repoId" value={r.id} />
-							<button class="btn ghost sm">Kivétel</button>
-						</form>
+				<div class="repo">
+					<div class="drow">
+						<FolderGit2 size={17} class="ic on" />
+						<span class="grow">{r.repo} <span class="faint small">{r.provider === 'github' ? 'GitHub' : 'GitLab'} · {r.addedBy} vette fel, {ago(r.createdAt)}</span></span>
+						{#if data.role === 'owner'}
+							<form method="POST" action="?/removeRepo" use:enhance={withToast()} onsubmit={ask(`Kiveszed a(z) ${r.repo} repót? A már hivatkozott szakaszok megmaradnak, de nem frissülnek tovább, és a repó SSH-kulcsa is törlődik.`)}>
+								<input type="hidden" name="repoId" value={r.id} />
+								<button class="btn ghost sm">Kivétel</button>
+							</form>
+						{/if}
+					</div>
+					<div class="access small">
+						<KeyRound size={14} />
+						{#if r.sshPublicKey}
+							<span class="grow">
+								SSH-kulccsal olvas <code title={r.sshFingerprint ?? ''}>{r.sshFingerprint?.slice(7, 19)}…</code>
+								{#if r.sshVerifiedAt}<span class="ok">· ellenőrizve {ago(r.sshVerifiedAt)}</span>{:else}<span class="warn">· még nincs ellenőrizve</span>{/if}
+							</span>
+							{#if data.role === 'owner'}
+								<form method="POST" action="?/checkKey" use:enhance={withToast()}>
+									<input type="hidden" name="repoId" value={r.id} />
+									<button class="btn quiet sm">Ellenőrzés</button>
+								</form>
+								<form method="POST" action="?/genKey" use:enhance={withToast()} onsubmit={ask('Új kulcsot generálsz? A régi azonnal érvényét veszti; az újat hozzá kell adnod a repóhoz.')}>
+									<input type="hidden" name="repoId" value={r.id} />
+									<button class="btn ghost sm">Új kulcs</button>
+								</form>
+								<form method="POST" action="?/removeKey" use:enhance={withToast()} onsubmit={ask('Törlöd az SSH-kulcsot? Utána a repót újra tokennel (ha van), vagy csak nyilvánosan éri el.')}>
+									<input type="hidden" name="repoId" value={r.id} />
+									<button class="btn ghost sm">Kulcs törlése</button>
+								</form>
+							{/if}
+						{:else}
+							<span class="grow muted">
+								{(r.provider === 'github' ? data.tokens.github : data.tokens.gitlab)
+									? `A szerver ${r.provider === 'github' ? 'GitHub' : 'GitLab'}-tokenjével olvas.`
+									: 'Nyilvánosan olvas; privát repóhoz SSH-kulcs kell.'}
+							</span>
+							{#if data.role === 'owner'}
+								<form method="POST" action="?/genKey" use:enhance={withToast()}>
+									<input type="hidden" name="repoId" value={r.id} />
+									<button class="btn quiet sm">SSH-kulcs generálása</button>
+								</form>
+							{/if}
+						{/if}
+					</div>
+					{#if r.sshPublicKey}
+						<details class="keybox" open={!r.sshVerifiedAt}>
+							<summary class="small">Nyilvános kulcs és teendők</summary>
+							<div class="keyline">
+								<code class="pub">{r.sshPublicKey}</code>
+								<button type="button" class="btn ghost sm" onclick={() => copy(r.sshPublicKey ?? '')}><Copy size={13} /> Másolás</button>
+							</div>
+							<ol class="small steps">
+								<li>
+									Nyisd meg a repó <a href={r.deployKeyUrl} target="_blank" rel="noopener noreferrer">Deploy keys beállítását</a>
+									({r.provider === 'github' ? 'Settings → Deploy keys → Add deploy key' : 'Settings → Repository → Deploy keys'}).
+								</li>
+								<li>
+									Cím: <code>Teréz</code>, kulcs: a fenti sor. Az írási jogot ({r.provider === 'github' ? '„Allow write access”' : '„Grant write permissions to this key”'}) hagyd kikapcsolva.
+								</li>
+								<li>Mentés után kattints itt az <b>Ellenőrzés</b> gombra.</li>
+							</ol>
+						</details>
 					{/if}
 				</div>
 			{:else}
@@ -174,13 +228,78 @@
 	.addrepo input {
 		flex: 1;
 	}
-	.note {
-		margin: -4px 0 12px;
+	/* Repó: név, hozzáférés (token / SSH-kulcs), nyilvános kulcs */
+	.repo {
+		border-top: 1px solid var(--rule);
+	}
+	.repo:first-child {
+		border-top: 0;
+	}
+	.repo .drow {
+		border-top: 0;
+		padding-bottom: 4px;
+	}
+	.access {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 6px 10px;
+		padding: 0 14px 10px 43px;
+		color: var(--graphite);
+	}
+	.access > :global(svg) {
+		flex: none;
+		color: var(--faint);
+	}
+	.access .ok {
+		color: var(--teal);
+	}
+	.access .warn {
+		color: var(--mark-ink);
+	}
+	.keybox {
+		margin: 0 14px 12px 43px;
 		padding: 8px 12px;
 		border-radius: var(--r-sm);
-		background: var(--mark-wash);
-		color: var(--mark-ink);
-		max-width: 68ch;
+		background: var(--sunken);
+	}
+	.keybox summary {
+		cursor: pointer;
+		color: var(--graphite);
+	}
+	.keyline {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		margin-top: 8px;
+	}
+	.pub {
+		flex: 1;
+		min-width: 0;
+		padding: 6px 8px;
+		border-radius: var(--r-sm);
+		background: var(--surface);
+		font-size: 12px;
+		overflow-wrap: anywhere;
+		user-select: all;
+	}
+	.steps {
+		margin: 8px 0 2px;
+		padding-left: 20px;
+		color: var(--graphite);
+	}
+	.steps li + li {
+		margin-top: 2px;
+	}
+	@media (max-width: 760px) {
+		.access,
+		.keybox {
+			padding-left: 14px;
+			margin-left: 0;
+		}
+		.keybox {
+			margin: 0 0 12px;
+		}
 	}
 	.switch {
 		display: inline-flex;

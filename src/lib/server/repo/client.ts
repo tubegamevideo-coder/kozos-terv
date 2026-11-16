@@ -1,46 +1,10 @@
+import { decodeText, encodePath, MAX_FILE_BYTES, RepoFetchError, type FetchedFile, type FileLocation, type RepoAuth } from './common';
 import { gitlabBase, type RepoProvider } from './ref';
+import { checkAccessSsh, fetchFileSsh } from './ssh';
 
-export interface FileLocation {
-	provider: RepoProvider;
-	repo: string;
-	path: string;
-	ref?: string;
-}
+export { MAX_FILE_BYTES, RepoFetchError, type FetchedFile, type FileLocation, type RepoAuth };
 
-export interface FetchedFile {
-	text: string;
-	/** A tartalom azonosítója (git blob SHA). */
-	blobSha: string;
-	webUrl: string;
-	/** A ténylegesen olvasott ág (GitLabon az alapértelmezett ág feloldva). */
-	ref?: string;
-}
-
-/** Legfeljebb ekkora fájlt húzunk be egy szakaszba. */
-export const MAX_FILE_BYTES = 256 * 1024;
 const TIMEOUT_MS = 10_000;
-
-/** A repó nem adta oda a fájlt; az üzenet magyar, a felületen és a Claude-nak is megjelenik. */
-export class RepoFetchError extends Error {
-	constructor(
-		message: string,
-		public readonly status?: number
-	) {
-		super(message);
-		this.name = 'RepoFetchError';
-	}
-}
-
-const encodePath = (p: string) => p.split('/').map(encodeURIComponent).join('/');
-
-function decodeBase64Text(b64: string, size: number | undefined) {
-	const buf = Buffer.from(b64, 'base64');
-	if ((size ?? buf.length) > MAX_FILE_BYTES || buf.length > MAX_FILE_BYTES) {
-		throw new RepoFetchError(`A fájl túl nagy (${Math.round((size ?? buf.length) / 1024)} KB); legfeljebb ${MAX_FILE_BYTES / 1024} KB lehet.`);
-	}
-	if (buf.includes(0)) throw new RepoFetchError('Ez bináris fájl, szakaszként nem jeleníthető meg.');
-	return buf.toString('utf8');
-}
 
 async function get(url: string, headers: Record<string, string>, provider: string, hasToken: boolean) {
 	let res: Response;
@@ -52,14 +16,14 @@ async function get(url: string, headers: Record<string, string>, provider: strin
 	if (res.ok) return res.json() as Promise<Record<string, unknown>>;
 	const tokenHint = hasToken
 		? 'a szerver tokenje nem fér hozzá'
-		: `a repó privát, és nincs beállítva token (${provider === 'GitHub' ? 'GITHUB_TOKEN' : 'GITLAB_TOKEN'})`;
+		: `a repó privát, és nincs hozzá token (${provider === 'GitHub' ? 'GITHUB_TOKEN' : 'GITLAB_TOKEN'}) vagy SSH-kulcs (Beállítások → Repók)`;
 	if (res.status === 404) throw new RepoFetchError(`A fájl nem található (${provider}), vagy ${tokenHint}.`, 404);
 	if (res.status === 401) throw new RepoFetchError(`A(z) ${provider}-token érvénytelen vagy lejárt.`, 401);
 	if (res.status === 403 || res.status === 429) {
 		const limited = res.headers.get('x-ratelimit-remaining') === '0' || res.status === 429;
 		throw new RepoFetchError(
 			limited
-				? `Elfogyott a(z) ${provider} lekérdezési kerete; később újra próbálható${hasToken ? '' : ' (tokennel jóval nagyobb a keret)'}.`
+				? `Elfogyott a(z) ${provider} lekérdezési kerete; később újra próbálható${hasToken ? '' : ' (tokennel vagy SSH-kulccsal nincs ilyen korlát)'}.`
 				: `Nincs hozzáférés a repóhoz (${provider}, 403): ${tokenHint}.`,
 			res.status
 		);
@@ -82,7 +46,7 @@ async function fetchGitHub(loc: FileLocation): Promise<FetchedFile> {
 		throw new RepoFetchError(`A fájl túl nagy; legfeljebb ${MAX_FILE_BYTES / 1024} KB lehet.`);
 	}
 	return {
-		text: decodeBase64Text(j.content, typeof j.size === 'number' ? j.size : undefined),
+		text: decodeText(Buffer.from(j.content, 'base64'), typeof j.size === 'number' ? j.size : undefined),
 		blobSha: String(j.sha),
 		webUrl: String(j.html_url ?? `https://github.com/${loc.repo}/blob/${loc.ref ?? 'HEAD'}/${encodePath(loc.path)}`),
 		ref: loc.ref
@@ -104,7 +68,7 @@ async function fetchGitLab(loc: FileLocation): Promise<FetchedFile> {
 	const j = await get(`${project}/repository/files/${encodeURIComponent(loc.path)}?ref=${encodeURIComponent(ref)}`, headers, 'GitLab', !!token);
 	if (j.encoding !== 'base64' || typeof j.content !== 'string') throw new RepoFetchError('A GitLab ismeretlen formában adta vissza a fájlt.');
 	return {
-		text: decodeBase64Text(j.content, typeof j.size === 'number' ? j.size : undefined),
+		text: decodeText(Buffer.from(j.content, 'base64'), typeof j.size === 'number' ? j.size : undefined),
 		blobSha: String(j.blob_id),
 		webUrl: `${base}/${loc.repo}/-/blob/${encodePath(ref)}/${encodePath(loc.path)}`,
 		ref
@@ -112,10 +76,15 @@ async function fetchGitLab(loc: FileLocation): Promise<FetchedFile> {
 }
 
 /**
- * A repóolvasó. A tesztek a `fetchFile`-t lecserélik (mint a `clock.now`-t), így nem kell hálózat.
+ * A repóolvasó. SSH-kulccsal git-tel olvas, különben a szolgáltató API-ján (token a .env-ben, ha van).
+ * A tesztek a függvényeit lecserélik (mint a `clock.now`-t), így nem kell hálózat.
  */
 export const repoClient = {
-	fetchFile: (loc: FileLocation): Promise<FetchedFile> => (loc.provider === 'github' ? fetchGitHub(loc) : fetchGitLab(loc))
+	fetchFile: (loc: FileLocation, auth?: RepoAuth): Promise<FetchedFile> =>
+		auth?.ssh ? fetchFileSsh(loc, auth.ssh) : loc.provider === 'github' ? fetchGitHub(loc) : fetchGitLab(loc),
+	/** Olvasható-e a repó a kulccsal; visszaadja az alapértelmezett ágat. */
+	checkAccess: (loc: { provider: RepoProvider; repo: string }, auth: Required<RepoAuth>): Promise<{ defaultBranch: string }> =>
+		checkAccessSsh(loc, auth.ssh)
 };
 
 /** Be van-e állítva token az egyes szolgáltatókhoz (a beállítási oldal mutatja). */

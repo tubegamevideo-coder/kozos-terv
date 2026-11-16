@@ -11,9 +11,11 @@ A specifikáció: `docs/SPEC.md`. Ha valamit nyitva hagy, kérdezz, ne találgas
 - `src/lib/server/core/` – **a közös mag**. Minden írás (szakasz, zár, javaslat, kérdés, ötlet,
   megjegyzés, esemény) csak innen mehet. Az MCP-réteg és a felület ezt hívja, sosem az
   adatbázist közvetlenül.
-- `src/lib/server/repo/` – GitHub/GitLab-olvasó (`client.ts`), címek (`ref.ts`), fájl → szakasz
-  (`content.ts`). Hálózati hívás sosem megy tranzakción belül; a tesztek a `repoClient.fetchFile`-t
-  cserélik le (mint a `clock.now`-t).
+- `src/lib/server/repo/` – GitHub/GitLab-olvasó (`client.ts`: API vagy SSH), git SSH-n (`ssh.ts`),
+  kulcsok (`sshkey.ts`), címek (`ref.ts`), fájl → szakasz (`content.ts`). Hálózati hívás sosem megy
+  tranzakción belül; a tesztek a `repoClient` függvényeit és az `sshRemote.of`-ot cserélik le (mint a
+  `clock.now`-t). A privát kulcs csak fájlban van (`REPO_STATE_DIR`), sosem az adatbázisban.
+  A valódi SSH-teszt helyi sshd-vel fut: `SSH_E2E=1 npm test`.
 - `src/lib/server/mcp/` – MCP-eszközök (`server.ts`), promptok, a `/mcp` kezelője (`http.ts`).
   Az eszközleírások tanítják a Claude-ot: ha a viselkedésen akarsz változtatni, ott kezdd.
 - `src/lib/server/auth/` – Google-belépés, munkamenet, saját OAuth 2.1 szerver (`oauth.ts`),

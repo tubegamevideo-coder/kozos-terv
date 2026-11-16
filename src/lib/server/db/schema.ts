@@ -366,6 +366,15 @@ export const projectRepo = pgTable(
 		provider: repoProvider('provider').notNull(),
 		/** GitHubon `tulajdonos/név`, GitLabon a teljes útvonal (`csoport/alcsoport/projekt`). */
 		repo: text('repo').notNull(),
+		/**
+		 * SSH-kulcs (deploy key) a repó olvasásához, ha van. Csak a nyilvános fele van itt; a privát kulcs
+		 * fájlban él a szerver adatmappájában (`REPO_STATE_DIR`), sosem az adatbázisban.
+		 */
+		sshPublicKey: text('ssh_public_key'),
+		sshFingerprint: text('ssh_fingerprint'),
+		sshKeyCreatedAt: ts('ssh_key_created_at'),
+		/** Mikor sikerült utoljára olvasni a repót a kulccsal („Ellenőrzés”). */
+		sshVerifiedAt: ts('ssh_verified_at'),
 		createdBy: text('created_by')
 			.notNull()
 			.references(() => user.id),

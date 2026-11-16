@@ -180,7 +180,7 @@ describe('repóolvasó', () => {
 
 		delete process.env.GITHUB_TOKEN;
 		next = () => reply(404, { message: 'Not Found' });
-		await expect(realFetch(loc)).rejects.toThrow(/nincs beállítva token \(GITHUB_TOKEN\)/);
+		await expect(realFetch(loc)).rejects.toThrow(/nincs hozzá token \(GITHUB_TOKEN\) vagy SSH-kulcs/);
 		expect(seen.at(-1)?.auth).toBeNull();
 		globalThis.fetch = (async () => {
 			throw new TypeError('fetch failed');

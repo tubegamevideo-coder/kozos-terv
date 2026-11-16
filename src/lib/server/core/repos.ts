@@ -2,8 +2,10 @@ import { and, asc, eq, inArray, isNull, lt } from 'drizzle-orm';
 import type { Db, DbOrTx } from '../db';
 import { projectRepo, section, sectionSource, user } from '../db/schema';
 import { fileToSection } from '../repo/content';
-import { repoClient, RepoFetchError, type FetchedFile, type FileLocation } from '../repo/client';
+import { repoClient, RepoFetchError, type FetchedFile, type FileLocation, type RepoAuth } from '../repo/client';
 import { normalizePath, normalizeRef, parseRepoInput, sourceLabel, type RepoProvider } from '../repo/ref';
+import { removeGitCache } from '../repo/ssh';
+import { generateSshKey, keyStore } from '../repo/sshkey';
 import { loadDocument, loadProject, loadSection } from './access';
 import { CoreError } from './errors';
 import { recordEvent } from './events';
@@ -38,7 +40,12 @@ export async function listProjectRepos(db: DbOrTx, actor: Actor, projectId: stri
 			provider: projectRepo.provider,
 			repo: projectRepo.repo,
 			addedBy: user.name,
-			createdAt: projectRepo.createdAt
+			createdAt: projectRepo.createdAt,
+			// Csak a nyilvános kulcs; a privát a szerveren marad.
+			sshPublicKey: projectRepo.sshPublicKey,
+			sshFingerprint: projectRepo.sshFingerprint,
+			sshKeyCreatedAt: projectRepo.sshKeyCreatedAt,
+			sshVerifiedAt: projectRepo.sshVerifiedAt
 		})
 		.from(projectRepo)
 		.innerJoin(user, eq(user.id, projectRepo.createdBy))
@@ -71,16 +78,24 @@ export async function addProjectRepo(db: Db, actor: Actor, input: { projectId: s
 	});
 }
 
-/** Repó kivétele a hivatkozhatók közül. A meglévő szakaszok megmaradnak, de már nem frissülnek. */
+/**
+ * Repó kivétele a hivatkozhatók közül. A meglévő szakaszok megmaradnak, de már nem frissülnek.
+ * Az SSH-kulcsa is törlődik (a kulcsfájl ténylegesen: titkot nem tartunk meg feleslegesen).
+ */
 export async function removeProjectRepo(db: Db, actor: Actor, input: { projectId: string; repoId: string }) {
 	humanOnly(actor, 'A hivatkozható repókat');
-	return db.transaction(async (tx) => {
+	const removed = await db.transaction(async (tx) => {
 		const { project: p } = await loadProject(tx, actor, input.projectId, 'owner');
+		const [old] = await tx
+			.select({ sshPublicKey: projectRepo.sshPublicKey })
+			.from(projectRepo)
+			.where(and(eq(projectRepo.id, input.repoId), eq(projectRepo.projectId, p.id), isNull(projectRepo.deletedAt)))
+			.for('update');
 		const [row] = await tx
 			.update(projectRepo)
-			.set({ deletedAt: clock.now() })
+			.set({ deletedAt: clock.now(), sshPublicKey: null, sshFingerprint: null, sshKeyCreatedAt: null, sshVerifiedAt: null })
 			.where(and(eq(projectRepo.id, input.repoId), eq(projectRepo.projectId, p.id), isNull(projectRepo.deletedAt)))
-			.returning({ provider: projectRepo.provider, repo: projectRepo.repo });
+			.returning({ id: projectRepo.id, provider: projectRepo.provider, repo: projectRepo.repo });
 		if (!row) throw new CoreError('NOT_FOUND', 'Nincs ilyen hivatkozható repó ebben a projektben.');
 		await recordEvent(tx, actor, {
 			projectId: p.id,
@@ -90,16 +105,22 @@ export async function removeProjectRepo(db: Db, actor: Actor, input: { projectId
 			summary: `Már nem hivatkozható: ${row.repo}`,
 			data: { provider: row.provider, repo: row.repo }
 		});
-		return { removed: true };
+		return { id: row.id, sshPublicKey: old?.sshPublicKey ?? null };
 	});
+	if (removed.sshPublicKey) await keyStore.remove(removed.id, removed.sshPublicKey).catch(() => {});
+	await removeGitCache(removed.id).catch(() => {});
+	return { removed: true };
 }
 
-async function assertRepoAllowed(db: DbOrTx, projectId: string, provider: RepoProvider, repo: string) {
+type AllowedRepo = { id: string; provider: RepoProvider; repo: string; sshPublicKey: string | null };
+
+async function assertRepoAllowed(db: DbOrTx, projectId: string, provider: RepoProvider, repo: string): Promise<AllowedRepo> {
 	const rows = await db
-		.select({ provider: projectRepo.provider, repo: projectRepo.repo })
+		.select({ id: projectRepo.id, provider: projectRepo.provider, repo: projectRepo.repo, sshPublicKey: projectRepo.sshPublicKey })
 		.from(projectRepo)
 		.where(and(eq(projectRepo.projectId, projectId), isNull(projectRepo.deletedAt)));
-	if (rows.some((r) => r.provider === provider && r.repo === repo)) return;
+	const hit = rows.find((r) => r.provider === provider && r.repo === repo);
+	if (hit) return hit;
 	throw new CoreError(
 		'REPO_NOT_ALLOWED',
 		`A(z) ${repo} repó nincs felvéve a projekt hivatkozható repói közé. A munkatér tulajdonosa veheti fel a Beállításokban.`,
@@ -107,15 +128,121 @@ async function assertRepoAllowed(db: DbOrTx, projectId: string, provider: RepoPr
 	);
 }
 
-async function fetchOrFail(loc: FileLocation): Promise<FetchedFile> {
+/** SSH-kulccsal olvasunk, ha a repóhoz van; különben a szolgáltató API-ján. */
+const authFor = (r: AllowedRepo): RepoAuth | undefined => (r.sshPublicKey ? { ssh: { repoId: r.id, publicKey: r.sshPublicKey } } : undefined);
+
+async function fetchOrFail(loc: FileLocation, auth?: RepoAuth): Promise<FetchedFile> {
 	try {
-		return await repoClient.fetchFile(loc);
+		return await repoClient.fetchFile(loc, auth);
 	} catch (e) {
 		if (e instanceof RepoFetchError) {
 			throw new CoreError('REPO_FETCH_FAILED', e.message, { repo: loc.repo, path: loc.path, ref: loc.ref, status: e.status });
 		}
 		throw e;
 	}
+}
+
+// ---------------------------------------------------------------- SSH-kulcsok (deploy key)
+
+async function lockLiveRepo(tx: DbOrTx, projectId: string, repoId: string) {
+	const [row] = await tx
+		.select({ id: projectRepo.id, provider: projectRepo.provider, repo: projectRepo.repo, sshPublicKey: projectRepo.sshPublicKey })
+		.from(projectRepo)
+		.where(and(eq(projectRepo.id, repoId), eq(projectRepo.projectId, projectId), isNull(projectRepo.deletedAt)))
+		.for('update');
+	if (!row) throw new CoreError('NOT_FOUND', 'Nincs ilyen hivatkozható repó ebben a projektben.');
+	return row;
+}
+
+/**
+ * Új SSH-kulcs a repóhoz (ha már volt, lecseréli). A nyilvános kulcsot a repó Deploy keys beállításainál
+ * kell hozzáadni, írási jog nélkül; onnantól Teréz ezzel olvassa a repót, token nélkül is.
+ * A kulcsfájl az adatbázis előtt íródik, így az adatbázis mindig létező kulcsra mutat.
+ */
+export async function generateRepoKey(db: Db, actor: Actor, input: { projectId: string; repoId: string }) {
+	humanOnly(actor, 'A repók SSH-kulcsait');
+	const pre = await db.transaction(async (tx) => {
+		await loadProject(tx, actor, input.projectId, 'owner');
+		return lockLiveRepo(tx, input.projectId, input.repoId);
+	});
+	const pair = generateSshKey(`terez:${pre.repo}`);
+	await keyStore.save(pre.id, pair);
+	let old: string | null;
+	try {
+		old = await db.transaction(async (tx) => {
+			const { project: p } = await loadProject(tx, actor, input.projectId, 'owner');
+			const row = await lockLiveRepo(tx, p.id, input.repoId);
+			await tx
+				.update(projectRepo)
+				.set({ sshPublicKey: pair.publicKey, sshFingerprint: pair.fingerprint, sshKeyCreatedAt: clock.now(), sshVerifiedAt: null })
+				.where(eq(projectRepo.id, row.id));
+			await recordEvent(tx, actor, {
+				projectId: p.id,
+				type: 'project.repo_key_created',
+				targetType: 'project',
+				targetId: p.id,
+				summary: row.sshPublicKey ? `Új SSH-kulcs: ${row.repo} (a régi már nem érvényes)` : `SSH-kulcs készült: ${row.repo}`,
+				data: { provider: row.provider, repo: row.repo, fingerprint: pair.fingerprint }
+			});
+			return row.sshPublicKey;
+		});
+	} catch (e) {
+		await keyStore.remove(pre.id, pair.publicKey).catch(() => {});
+		throw e;
+	}
+	if (old && old !== pair.publicKey) await keyStore.remove(pre.id, old).catch(() => {});
+	return { repoId: pre.id, publicKey: pair.publicKey, fingerprint: pair.fingerprint, replaced: !!old };
+}
+
+/** A repó SSH-kulcsának törlése; utána újra az API-n (tokennel, ha van) olvas. A kulcsfájl ténylegesen törlődik. */
+export async function removeRepoKey(db: Db, actor: Actor, input: { projectId: string; repoId: string }) {
+	humanOnly(actor, 'A repók SSH-kulcsait');
+	const old = await db.transaction(async (tx) => {
+		const { project: p } = await loadProject(tx, actor, input.projectId, 'owner');
+		const row = await lockLiveRepo(tx, p.id, input.repoId);
+		if (!row.sshPublicKey) throw new CoreError('VALIDATION', 'Ehhez a repóhoz nincs SSH-kulcs.');
+		await tx
+			.update(projectRepo)
+			.set({ sshPublicKey: null, sshFingerprint: null, sshKeyCreatedAt: null, sshVerifiedAt: null })
+			.where(eq(projectRepo.id, row.id));
+		await recordEvent(tx, actor, {
+			projectId: p.id,
+			type: 'project.repo_key_removed',
+			targetType: 'project',
+			targetId: p.id,
+			summary: `SSH-kulcs törölve: ${row.repo}`,
+			data: { provider: row.provider, repo: row.repo }
+		});
+		return { id: row.id, publicKey: row.sshPublicKey };
+	});
+	await keyStore.remove(old.id, old.publicKey).catch(() => {});
+	return { removed: true };
+}
+
+/** Olvasható-e a repó a kulccsal (a Deploy key hozzáadása után); siker esetén megjegyezzük az időpontot. */
+export async function checkRepoAccess(db: Db, actor: Actor, input: { projectId: string; repoId: string }) {
+	humanOnly(actor, 'A repók SSH-kulcsait');
+	const row = await db.transaction(async (tx) => {
+		const { project: p } = await loadProject(tx, actor, input.projectId, 'owner');
+		return lockLiveRepo(tx, p.id, input.repoId);
+	});
+	if (!row.sshPublicKey) throw new CoreError('VALIDATION', 'Ehhez a repóhoz még nincs SSH-kulcs; előbb generálj egyet.');
+	let defaultBranch: string;
+	try {
+		({ defaultBranch } = await repoClient.checkAccess(
+			{ provider: row.provider, repo: row.repo },
+			{ ssh: { repoId: row.id, publicKey: row.sshPublicKey } }
+		));
+	} catch (e) {
+		if (e instanceof RepoFetchError) throw new CoreError('REPO_FETCH_FAILED', e.message, { repo: row.repo, status: e.status });
+		throw e;
+	}
+	// Csak ha közben nem cserélték a kulcsot.
+	await db
+		.update(projectRepo)
+		.set({ sshVerifiedAt: clock.now() })
+		.where(and(eq(projectRepo.id, row.id), eq(projectRepo.sshPublicKey, row.sshPublicKey)));
+	return { ok: true, repo: row.repo, defaultBranch };
 }
 
 // ---------------------------------------------------------------- hivatkozás
@@ -149,9 +276,9 @@ export async function linkRepoFile(db: Db, actor: Actor, input: LinkRepoFileInpu
 	};
 	const pre = await loadDocument(db, actor, input.documentId, 'editor');
 	assertDirectWriteAllowed(actor, pre.document);
-	await assertRepoAllowed(db, pre.project.id, loc.provider, loc.repo);
+	const allowed = await assertRepoAllowed(db, pre.project.id, loc.provider, loc.repo);
 
-	const file = await fetchOrFail(loc);
+	const file = await fetchOrFail(loc, authFor(allowed));
 	const conv = fileToSection(file.text, { ...loc, ref: loc.ref ?? file.ref });
 	const title = input.title?.trim() || conv.title;
 
@@ -236,8 +363,9 @@ export async function refreshRepoSection(
 		return { sectionId: input.sectionId, changed: false, fresh: true };
 	}
 
+	let allowed: AllowedRepo;
 	try {
-		await assertRepoAllowed(db, ctx0.project.id, src.provider, src.repo);
+		allowed = await assertRepoAllowed(db, ctx0.project.id, src.provider, src.repo);
 	} catch (e) {
 		if (e instanceof CoreError) {
 			await recordFailure(db, src.sectionId, 'A repó már nincs felvéve a projekt hivatkozható repói közé, ezért nem frissül.');
@@ -248,7 +376,7 @@ export async function refreshRepoSection(
 
 	let file: FetchedFile;
 	try {
-		file = await fetchOrFail({ provider: src.provider, repo: src.repo, path: src.path, ref: src.ref ?? undefined });
+		file = await fetchOrFail({ provider: src.provider, repo: src.repo, path: src.path, ref: src.ref ?? undefined }, authFor(allowed));
 	} catch (e) {
 		if (e instanceof CoreError) {
 			await recordFailure(db, src.sectionId, e.message);

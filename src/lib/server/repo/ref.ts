@@ -57,7 +57,8 @@ export function normalizePath(input: string | undefined) {
 export function normalizeRef(input: string | undefined | null) {
 	const ref = input?.trim();
 	if (!ref) return undefined;
-	if (!REF.test(ref) || ref.includes('..')) throw new CoreError('VALIDATION', `Érvénytelen ág vagy címke: „${input}”.`);
+	// Kötőjellel sem kezdődhet: SSH-s olvasásnál a git parancssorába kerül.
+	if (!REF.test(ref) || ref.includes('..') || ref.startsWith('-')) throw new CoreError('VALIDATION', `Érvénytelen ág vagy címke: „${input}”.`);
 	return ref;
 }
 
